@@ -19,10 +19,16 @@ spring:
       matching-strategy: ant_path_matcher
   redis:
     database: 0
-    host: localhost
+#    host: 127.0.0.1
+    host: 121.43.145.161
     port: 6379
-  oss:
-    endpoint: a
-    accessKeyId: a
-    accessKeySecret: a
-    bucketName: a
+  session:
+    store-type: redis
+    redis:
+      namespace: spring:session
+      # Redis 配置
+      flush-mode: on_save
+      # 设置会话过期时间
+      timeout: 86400
+server:
+  port: 8080

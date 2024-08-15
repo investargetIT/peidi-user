@@ -53,7 +53,7 @@ public class SwaggerConfig {
      * 这个方法主要是写一些文档的描述
      */
     private ApiInfo apiInfo() {
-        return new ApiInfo("peidi-wms docker服务", "peidi-wms服务的API接口文档", "1.0", "",
+        return new ApiInfo("peidi-user", "peidi-user服务的API接口文档", "1.0", "",
                 new Contact("王家琦", "", "1084948949@qq.com"), "", "", Collections.emptyList());
     }
 }
