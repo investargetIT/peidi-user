@@ -45,7 +45,7 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
             // 防止固定会话攻击，Spring security的默认配置就是如此：
             // 登陆成功之后会创建一个新的会话，然后将旧的session信息复制到新的session中（客户端的sessionId变了）
             .sessionManagement().sessionFixation().migrateSession()
-             .invalidSessionStrategy(defaultInvalidSessionStrategy)
+//             .invalidSessionStrategy(defaultInvalidSessionStrategy)
             .maximumSessions(10).maxSessionsPreventsLogin(true).expiredSessionStrategy(defaultExpiredSessionStrategy)
             .and().and().logout().logoutUrl(authProperties.getLogoutUrl()).logoutSuccessHandler(logoutSuccessHandler)
             .deleteCookies("JSESSIONID")

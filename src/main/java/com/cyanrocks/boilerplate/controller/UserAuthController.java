@@ -60,26 +60,26 @@ public class UserAuthController {
         userFacade.registerUserAccountByMail(registrationView);
     }
 
-    @PostMapping("/email-update-password")
-    @ApiOperation(value = "邮箱:利用旧密码更新密码")
-    public void updatePasswordByEmail(@RequestBody UpdatePasswordRequest updatePasswordCommand,
-                                      HttpServletRequest request, HttpServletResponse response) throws IOException {
-        userFacade.updatePasswordByEmail(updatePasswordCommand);
-        // // 更新密码后清除登陆状态
-        Cookie cookie = new Cookie("JSESSIONID", (String)null);
-        String cookiePath = request.getContextPath() + "/";
-        cookie.setPath(cookiePath);
-        cookie.setMaxAge(0);
-        response.addCookie(cookie);
-        response.setContentType("application/json;charset=UTF-8");
-        response.getWriter().write(objectMapper.writeValueAsString(GenericResponse.success()));
-    }
+//    @PostMapping("/email-update-password")
+//    @ApiOperation(value = "邮箱:利用旧密码更新密码")
+//    public void updatePasswordByEmail(@RequestBody UpdatePasswordRequest updatePasswordCommand,
+//                                      HttpServletRequest request, HttpServletResponse response) throws IOException {
+//        userFacade.updatePasswordByEmail(updatePasswordCommand);
+//        // // 更新密码后清除登陆状态
+//        Cookie cookie = new Cookie("JSESSIONID", (String)null);
+//        String cookiePath = request.getContextPath() + "/";
+//        cookie.setPath(cookiePath);
+//        cookie.setMaxAge(0);
+//        response.addCookie(cookie);
+//        response.setContentType("application/json;charset=UTF-8");
+//        response.getWriter().write(objectMapper.writeValueAsString(GenericResponse.success()));
+//    }
 
-    @PostMapping("/email-reset-password")
-    @ApiOperation(value = "利用邮箱重置密码")
-    public void forgetPasswordByEmail(@RequestBody ForgetPasswordRequest forgetPasswordCommand) {
-        userFacade.forgetPasswordByEmail(forgetPasswordCommand);
-    }
+//    @PostMapping("/email-reset-password")
+//    @ApiOperation(value = "利用邮箱重置密码")
+//    public void forgetPasswordByEmail(@RequestBody ForgetPasswordRequest forgetPasswordCommand) {
+//        userFacade.forgetPasswordByEmail(forgetPasswordCommand);
+//    }
 
     // 手机注册
     @PostMapping("/sms-register")

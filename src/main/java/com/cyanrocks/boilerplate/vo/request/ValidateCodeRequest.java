@@ -17,7 +17,7 @@ public class ValidateCodeRequest {
     private String destination;
 
     @NotNull
-    @ApiModelProperty(value = "验证码类型", required = true, allowableValues = "email_register,email_reset_password",
+    @ApiModelProperty(value = "验证码类型", required = true, allowableValues = "sms_register,sms_reset_password",
         dataType = "String")
     private String codeType;
 }

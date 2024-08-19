@@ -4,10 +4,14 @@ package com.cyanrocks.boilerplate.validate.service.impl;
 import com.cyanrocks.boilerplate.constants.ErrorCodeEnum;
 import com.cyanrocks.boilerplate.constants.ValidateCodeTypeEnum;
 import com.cyanrocks.boilerplate.exception.BusinessException;
+import com.cyanrocks.boilerplate.utils.SmsUtils;
+import com.cyanrocks.boilerplate.validate.service.ValidateCode;
+import com.cyanrocks.boilerplate.validate.service.ValidateCodeGenerator;
 import com.cyanrocks.boilerplate.validate.service.ValidateCodeService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -31,6 +35,13 @@ public class ValidateCodeServiceImpl implements ValidateCodeService {
 
     @Autowired
     private StringRedisTemplate stringRedisTemplate;
+
+    @Autowired
+    @Qualifier(value = "defaultValidateCodeGenerator")
+    private ValidateCodeGenerator validateCodeGenerator;
+
+    @Autowired
+    private SmsUtils smsUtils;
 
     @Override
     public void checkCodeEffective(String identifier, String code, ValidateCodeTypeEnum validateCodeType) {
@@ -58,6 +69,7 @@ public class ValidateCodeServiceImpl implements ValidateCodeService {
             }
             case SMS: {
                 generateSmsCodeAndSend(identifier, validateCodeType);
+                break;
             }
             default: {
                 throw new RuntimeException(String.format("不合法的发送通道:%s", validateCodeType.getChannel().name()));
@@ -66,8 +78,18 @@ public class ValidateCodeServiceImpl implements ValidateCodeService {
     }
 
     @Override
-    public void generateSmsCodeAndSend(String email, ValidateCodeTypeEnum validateCodeType) {
-
+    public void generateSmsCodeAndSend(String sms, ValidateCodeTypeEnum validateCodeType) {
+        String cacheKey = buildRedisKey(sms, validateCodeType);
+        ValidateCode code = validateCodeGenerator.generate(validateCodeType);
+        if (isCodeSentTooOften(cacheKey)) {
+            throw new BusinessException(ErrorCodeEnum.VALIDATE_CODE_SENT_TOO_OFTEN.getCode(),
+                    String.format("%s 验证码发送太频繁，请稍后再试", sms));
+        }
+        // 构建hash结构，存储验证码的值以及验证码的设置时间
+        stringRedisTemplate.opsForHash().put(cacheKey, VALUE_HASH_KEY, code.getCode());
+        stringRedisTemplate.opsForHash().put(cacheKey, INSERT_TIME_HASH_KEY,
+                String.valueOf(System.currentTimeMillis()));
+        smsUtils.sentSmsCode(sms, code.getCode());
     }
 
     @Override

@@ -1,4 +1,5 @@
 # 测试环境部署
+修改redis连接地址
 1. 使用 Maven 打包生成 jar 文件
 2. 删除旧的镜像
 2. 构建 Docker 镜像 `docker build -t peidi-user .`

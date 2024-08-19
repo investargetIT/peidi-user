@@ -12,7 +12,6 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 /**
@@ -31,9 +30,9 @@ public class PasswordLoginUserDetailService implements UserDetailsService {
         String username = principal.split("&")[0];
         String service = principal.split("&")[1];
         if (logger.isInfoEnabled()) {
-            logger.info("用户名密码方式登陆{}, 用户名={}", service, username);
+            logger.info("用户名密码方式登陆{}, 帐号={}", service, username);
         }
-        User user = userMapper.selectOne(Wrappers.<User>lambdaQuery().eq(User::getUsername,username));
+        User user = userMapper.selectOne(Wrappers.<User>lambdaQuery().eq(User::getEmail,username).or().eq(User::getMobile,username));
         if (null == user) {
             throw new UsernameNotFoundException(String.format("%s user not exist", username));
         }

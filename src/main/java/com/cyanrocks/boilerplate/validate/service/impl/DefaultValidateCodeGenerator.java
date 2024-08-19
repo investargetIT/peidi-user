@@ -8,10 +8,9 @@ import org.apache.commons.lang3.RandomStringUtils;
 import org.springframework.stereotype.Component;
 
 /**
- * @Author lmh
- * @Date 2020/7/30 3:19 下午
- * @Version 1.0
- **/
+ * @Author wjq
+ * @Date 2024/8/8 16:17
+ */
 @Component("defaultValidateCodeGenerator")
 public class DefaultValidateCodeGenerator implements ValidateCodeGenerator {
 

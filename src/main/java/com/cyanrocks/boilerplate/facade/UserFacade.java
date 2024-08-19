@@ -51,7 +51,7 @@ public class UserFacade {
 
     public void registerUserAccountBySms(SmsRegistrationRequest registrationRequest) {
         validateCodeService.checkCodeEffective(registrationRequest.getMobile(), registrationRequest.getMobileCode(),
-            ValidateCodeTypeEnum.EMAIL_REGISTER);
+            ValidateCodeTypeEnum.SMS_REGISTER);
         User user = new User();
         user.setMobile(registrationRequest.getMobile());
         user.setUsername(registrationRequest.getUsername());
@@ -101,7 +101,7 @@ public class UserFacade {
 
     public void forgetPasswordByEmail(ForgetPasswordRequest forgetPasswordCommand) {
         validateCodeService.checkCodeEffective(forgetPasswordCommand.getIdentifier(), forgetPasswordCommand.getValidateCode(),
-                ValidateCodeTypeEnum.EMAIL_REGISTER);
+                ValidateCodeTypeEnum.SMS_RESET_PASSWORD);
         User user = userMapper.selectOne(Wrappers.<User>lambdaQuery()
                 .eq(User::getEmail,forgetPasswordCommand.getIdentifier()));
         if (null == user) {
