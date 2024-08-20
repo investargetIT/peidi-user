@@ -7,11 +7,15 @@ import com.cyanrocks.boilerplate.security.authentication.handler.DefaultInvalidS
 import com.cyanrocks.boilerplate.security.authentication.password.UsernamePasswordAuthSecurityConfig;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
 import org.springframework.security.web.authentication.logout.LogoutSuccessHandler;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
  * @Author wjq
@@ -49,8 +53,15 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
             .maximumSessions(10).maxSessionsPreventsLogin(true).expiredSessionStrategy(defaultExpiredSessionStrategy)
             .and().and().logout().logoutUrl(authProperties.getLogoutUrl()).logoutSuccessHandler(logoutSuccessHandler)
             .deleteCookies("JSESSIONID")
-            // .and()
-            // .cors().configurationSource(corsConfigurationSource())
+             .and()
+             .cors().configurationSource(request -> {
+                    CorsConfiguration cors = new CorsConfiguration();
+                    cors.addAllowedOrigin("*");
+                    cors.addAllowedMethod("*");
+                    cors.addAllowedHeader("*");
+//                    cors.setAllowCredentials(true);
+                    return cors;
+                })
             .and()
             // .csrf().disable();
             // 开启csrf验证，需要前端同步传入token
