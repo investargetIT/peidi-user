@@ -36,8 +36,6 @@ public class GlobalExceptionHandler {
     @ResponseBody
     public GenericResponse<Void> handleValidException(MethodArgumentNotValidException e, HttpServletRequest request) {
         writeLogForError(e, request);
-        // 获取用户定义的message
-        // String msg = e.getBindingResult().getAllErrors().get(0).getDefaultMessage();
         return GenericResponse.paramIllegal(null);
     }
 

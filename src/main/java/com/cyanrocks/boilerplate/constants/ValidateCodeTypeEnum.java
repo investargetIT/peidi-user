@@ -35,7 +35,12 @@ public enum ValidateCodeTypeEnum {
     /**
      * 忘记密码后 短信修改密码的验证码
      */
-    SMS_RESET_PASSWORD("sms_reset_password", TimeUnit.MINUTES.toMillis(15), 6, Channel.SMS);
+    SMS_RESET_PASSWORD("sms_reset_password", TimeUnit.MINUTES.toMillis(15), 6, Channel.SMS),
+
+    /**
+     *OMS order trade 验证码
+     */
+    SMS_OMS_ORDER_TRADE("sms_oms_order_trade", TimeUnit.MINUTES.toMillis(15), 6, Channel.SMS);
 
     private String key;
 

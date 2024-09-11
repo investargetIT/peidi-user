@@ -6,6 +6,7 @@ import lombok.Data;
 
 import javax.validation.constraints.NotNull;
 
+
 /**
  * @Author wjq
  * @Date 2024/8/8 16:17
@@ -15,17 +16,19 @@ import javax.validation.constraints.NotNull;
 public class EmailRegistrationRequest {
 
     @NotNull
-    @ApiModelProperty(value = "邮箱", required = true, dataType = "String")
+    @ApiModelProperty(value = "邮箱")
     private String email;
 
     @NotNull
-    @ApiModelProperty(value = "邮箱验证码", required = true, dataType = "String")
+    @ApiModelProperty(value = "邮箱验证码")
     private String emailCode;
 
-    @ApiModelProperty(value = "用户名", required = true, dataType = "String")
+    @NotNull
+    @ApiModelProperty(value = "用户名")
     private String username;
 
-    @ApiModelProperty(value = "密码", required = true, dataType = "String")
+    @NotNull
+    @ApiModelProperty(value = "密码")
     private String password;
 
 }

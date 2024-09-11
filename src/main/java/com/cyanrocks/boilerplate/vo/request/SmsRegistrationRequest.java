@@ -24,9 +24,11 @@ public class SmsRegistrationRequest {
     @ApiModelProperty(value = "手机验证码", required = true, dataType = "String")
     private String mobileCode;
 
+    @NotNull
     @ApiModelProperty(value = "用户名", required = true, dataType = "String")
     private String username;
 
+    @NotNull
     @ApiModelProperty(value = "密码", required = true, dataType = "String")
     private String password;
 

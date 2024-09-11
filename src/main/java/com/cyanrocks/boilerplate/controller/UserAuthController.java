@@ -5,8 +5,8 @@ import com.cyanrocks.boilerplate.constants.ValidateCodeTypeEnum;
 import com.cyanrocks.boilerplate.dao.entity.UserToken;
 import com.cyanrocks.boilerplate.dao.mapper.UserTokenMapper;
 import com.cyanrocks.boilerplate.exception.BusinessException;
+import com.cyanrocks.boilerplate.exception.IllegalArgException;
 import com.cyanrocks.boilerplate.facade.UserFacade;
-import com.cyanrocks.boilerplate.security.authentication.UserInfoDetails;
 import com.cyanrocks.boilerplate.vo.request.*;
 import com.cyanrocks.boilerplate.validate.service.ValidateCodeService;
 import com.cyanrocks.boilerplate.vo.response.GenericResponse;
@@ -17,18 +17,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.validation.Valid;
 import java.io.IOException;
-import java.security.Principal;
 import java.time.LocalDateTime;
-import java.util.Objects;
 
 /**
  * @Author wjq
@@ -56,7 +53,7 @@ public class UserAuthController {
     // 邮箱注册
     @PostMapping("/email-register")
     @ApiOperation(value = "使用邮箱注册账户")
-    public void registerUserAccountByEmail(@RequestBody EmailRegistrationRequest registrationView) {
+    public void registerUserAccountByEmail(@Valid @RequestBody EmailRegistrationRequest registrationView) {
         userFacade.registerUserAccountByMail(registrationView);
     }
 
@@ -84,13 +81,13 @@ public class UserAuthController {
     // 手机注册
     @PostMapping("/sms-register")
     @ApiOperation(value = "使用手机注册账户")
-    public void registerUserAccountBySms(@RequestBody SmsRegistrationRequest registrationView) {
+    public void registerUserAccountBySms(@Valid @RequestBody SmsRegistrationRequest registrationView) {
         userFacade.registerUserAccountBySms(registrationView);
     }
 
     @PostMapping("/sms-update-password")
     @ApiOperation(value = "手机:利用旧密码更新密码")
-    public void updatePasswordBySns(@RequestBody UpdatePasswordRequest updatePasswordCommand,
+    public void updatePasswordBySns(@Valid @RequestBody UpdatePasswordRequest updatePasswordCommand,
                                       HttpServletRequest request, HttpServletResponse response) throws IOException {
         userFacade.updatePasswordBySms(updatePasswordCommand);
         // // 更新密码后清除登陆状态
@@ -105,7 +102,7 @@ public class UserAuthController {
 
     @PostMapping("/sms-reset-password")
     @ApiOperation(value = "利用手机重置密码")
-    public void forgetPasswordBySms(@RequestBody ForgetPasswordRequest forgetPasswordCommand) {
+    public void forgetPasswordBySms(@Valid @RequestBody ForgetPasswordRequest forgetPasswordCommand) {
         userFacade.forgetPasswordByEmail(forgetPasswordCommand);
     }
 
@@ -155,10 +152,19 @@ public class UserAuthController {
 
     @PostMapping("/validate-code")
     @ApiOperation(value = "发送验证码")
-    public void sendCode(@RequestBody ValidateCodeRequest validateCodeCommand) {
-        validateCodeService.generateValidateCodeAndSend(validateCodeCommand.getDestination(),
-                ValidateCodeTypeEnum.of(validateCodeCommand.getCodeType().toLowerCase()));
+    public void sendCode(@Valid @RequestBody ValidateCodeRequest validateCodeCommand, HttpServletRequest request) {
+        if ("wms".equals(request.getHeader("PLATFORM")) || "oms".equals(request.getHeader("PLATFORM"))){
+            validateCodeService.generateValidateCodeAndSend(validateCodeCommand.getDestination(),
+                    ValidateCodeTypeEnum.of(validateCodeCommand.getCodeType().toLowerCase()));
+        }
     }
+
+    @GetMapping("/check-code")
+    @ApiOperation(value = "校验验证码")
+    public void checkCode(@RequestParam("mobile") String mobile, @RequestParam("mobileCode") String mobileCode) {
+        validateCodeService.checkCodeEffective(mobile, mobileCode,ValidateCodeTypeEnum.SMS_OMS_ORDER_TRADE);
+    }
+
 
     @PostMapping(value = "/login/password", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
     @ApiOperation(value = "账号密码的登陆方式")

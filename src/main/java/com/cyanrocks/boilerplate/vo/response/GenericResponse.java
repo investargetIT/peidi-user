@@ -47,6 +47,10 @@ public class GenericResponse<T> {
         return new GenericResponse<>(PARAM_ILLEGAL_CODE, errMasg, false, null);
     }
 
+    public static GenericResponse<Void> paramIllegal() {
+        return new GenericResponse<>(PARAM_ILLEGAL_CODE, PARAM_ILLEGAL_CODE_MSG, false, null);
+    }
+
     public static <T> GenericResponse<T> paramIllegal(T data) {
         return new GenericResponse<>(PARAM_ILLEGAL_CODE, PARAM_ILLEGAL_CODE_MSG, false, data);
     }
