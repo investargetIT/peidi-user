@@ -42,4 +42,16 @@ public class User {
     @Comment("创建时间")
     private LocalDateTime createTime;
 
+    @Column(length = 255, name = "data_source")
+    @Comment("来源")
+    private Long dataSource;
+
+    @Column(length = 255, name = "ding_id")
+    @Comment("钉钉userid")
+    private String dingId;
+
+    @Column(length = 255, name = "dept_id")
+    @Comment("钉钉部门id")
+    private String deptId;
+
 }

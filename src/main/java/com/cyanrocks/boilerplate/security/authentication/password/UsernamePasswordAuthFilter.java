@@ -24,6 +24,7 @@ public class UsernamePasswordAuthFilter extends AbstractAuthenticationProcessing
 
     private String usernameParameter = "username";
     private String passwordParameter = "password";
+    private String siteParameter = "site";
     private boolean postOnly = true;
 
     // ~ Constructors
@@ -44,13 +45,12 @@ public class UsernamePasswordAuthFilter extends AbstractAuthenticationProcessing
         }
         String username = request.getParameter(usernameParameter);
         String password = request.getParameter(passwordParameter);
+        String site = request.getParameter(siteParameter);
         if (StringUtils.isBlank(username) || StringUtils.isBlank(password)) {
             throw new UsernameNotFoundException("username or password is null");
         }
         try {
-            String service = request.getParameter("service");
-            UsernamePasswordAuthToken authRequest = new UsernamePasswordAuthToken(username+"&"+service, password);
-
+            UsernamePasswordAuthToken authRequest = new UsernamePasswordAuthToken(username+"&"+site, password);
             // Allow subclasses to set the "details" property
             setDetails(request, authRequest);
             return this.getAuthenticationManager().authenticate(authRequest);

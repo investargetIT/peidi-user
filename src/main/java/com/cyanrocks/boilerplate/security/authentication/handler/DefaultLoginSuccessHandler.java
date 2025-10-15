@@ -42,6 +42,7 @@ public class DefaultLoginSuccessHandler extends SavedRequestAwareAuthenticationS
         //token表生成记录
         UserInfoDetails userInfoDetails = (UserInfoDetails)authentication.getPrincipal();
         UserToken userToken = new UserToken();
+        userToken.setUserId(userInfoDetails.getId());
         userToken.setService(userInfoDetails.getService());
         userToken.setUsername(userInfoDetails.getUserName());
         userToken.setExpireTime(LocalDateTime.now().plusDays(1));//登录状态有效期1天

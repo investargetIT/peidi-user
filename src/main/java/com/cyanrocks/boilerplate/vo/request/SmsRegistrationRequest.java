@@ -32,4 +32,9 @@ public class SmsRegistrationRequest {
     @ApiModelProperty(value = "密码", required = true, dataType = "String")
     private String password;
 
+    @ApiModelProperty(value = "数据源", required = true, dataType = "String")
+    private Long dataSource;
+
+    @ApiModelProperty(value = "钉钉id")
+    private String dingId;
 }

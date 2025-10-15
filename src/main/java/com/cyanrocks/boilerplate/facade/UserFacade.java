@@ -11,6 +11,7 @@ import com.cyanrocks.boilerplate.validate.service.ValidateCodeService;
 import com.cyanrocks.boilerplate.vo.request.ForgetPasswordRequest;
 import com.cyanrocks.boilerplate.vo.request.SmsRegistrationRequest;
 import com.cyanrocks.boilerplate.vo.request.UpdatePasswordRequest;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -36,29 +37,73 @@ public class UserFacade {
 
 
     public void registerUserAccountByMail(EmailRegistrationRequest registrationRequest) {
-        User user = new User();
-        user.setEmail(registrationRequest.getEmail());
-        user.setUsername(registrationRequest.getUsername());
-        user.setPassword(passwordEncoder.encode(registrationRequest.getPassword()));
-        user.setCreateTime(LocalDateTime.now());
-        if (null != userMapper.selectOne(Wrappers.<User>lambdaQuery()
-                .eq(User::getEmail,registrationRequest.getEmail()))){
-            throw new BusinessException(ErrorCodeEnum.EMAIL_ACCOUNT_ALREADY_EXIST.getCode(),
-                    "EMAIL_ACCOUNT_ALREADY_EXIST");
+        if (null != registrationRequest.getMobile()){
+            //钉钉免登邮箱注册
+            User user = userMapper.selectOne(Wrappers.<User>lambdaQuery()
+                    .eq(User::getMobile,registrationRequest.getMobile())
+                    .eq(User::getDataSource,registrationRequest.getDataSource() == null ? 1L: registrationRequest.getDataSource()));
+            if (null != user){
+                //钉钉免登已用手机号注册
+                user.setEmail(registrationRequest.getEmail());
+                userMapper.updateById(user);
+            }else {
+                user = new User();
+                user.setEmail(registrationRequest.getEmail());
+                user.setUsername(registrationRequest.getUsername());
+                user.setPassword(passwordEncoder.encode(registrationRequest.getPassword()));
+                user.setCreateTime(LocalDateTime.now());
+                user.setDingId(registrationRequest.getDingId());
+                if (null != registrationRequest.getDataSource()){
+                    user.setDataSource(registrationRequest.getDataSource());
+                }else {
+                    user.setDataSource(3L);
+                }
+                if (null != userMapper.selectOne(Wrappers.<User>lambdaQuery()
+                        .eq(User::getEmail,registrationRequest.getEmail()))){
+                    throw new BusinessException(ErrorCodeEnum.EMAIL_ACCOUNT_ALREADY_EXIST.getCode(),
+                            "EMAIL_ACCOUNT_ALREADY_EXIST");
+                }
+                userMapper.insert(user);
+            }
+        }else {
+            User user = new User();
+            user.setEmail(registrationRequest.getEmail());
+            user.setUsername(registrationRequest.getUsername());
+            user.setPassword(passwordEncoder.encode(registrationRequest.getPassword()));
+            user.setCreateTime(LocalDateTime.now());
+            user.setDingId(registrationRequest.getDingId());
+            if (null != registrationRequest.getDataSource()){
+                user.setDataSource(registrationRequest.getDataSource());
+            }else {
+                user.setDataSource(3L);
+            }
+            if (null != userMapper.selectOne(Wrappers.<User>lambdaQuery()
+                    .eq(User::getEmail,registrationRequest.getEmail()))){
+                throw new BusinessException(ErrorCodeEnum.EMAIL_ACCOUNT_ALREADY_EXIST.getCode(),
+                        "EMAIL_ACCOUNT_ALREADY_EXIST");
+            }
+            userMapper.insert(user);
         }
-        userMapper.insert(user);
     }
 
     public void registerUserAccountBySms(SmsRegistrationRequest registrationRequest) {
-        validateCodeService.checkCodeEffective(registrationRequest.getMobile(), registrationRequest.getMobileCode(),
-            ValidateCodeTypeEnum.SMS_REGISTER);
+        if (StringUtils.isNotEmpty(registrationRequest.getMobileCode())){
+            validateCodeService.checkCodeEffective(registrationRequest.getMobile(), registrationRequest.getMobileCode(),
+                    ValidateCodeTypeEnum.SMS_REGISTER);
+        }
         User user = new User();
         user.setMobile(registrationRequest.getMobile());
         user.setUsername(registrationRequest.getUsername());
         user.setPassword(passwordEncoder.encode(registrationRequest.getPassword()));
         user.setCreateTime(LocalDateTime.now());
+        user.setDingId(registrationRequest.getDingId());
+        if (null != registrationRequest.getDataSource()){
+            user.setDataSource(registrationRequest.getDataSource());
+        }else {
+            user.setDataSource(3L);
+        }
         if (null != userMapper.selectOne(Wrappers.<User>lambdaQuery()
-                .eq(User::getEmail,registrationRequest.getMobile()))){
+                .eq(User::getMobile,registrationRequest.getMobile()))){
             throw new BusinessException(ErrorCodeEnum.PHONE_ACCOUNT_ALREADY_EXIST.getCode(),
                     "PHONE_ACCOUNT_ALREADY_EXIST");
         }

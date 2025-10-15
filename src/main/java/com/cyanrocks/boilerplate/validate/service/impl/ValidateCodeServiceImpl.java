@@ -89,6 +89,7 @@ public class ValidateCodeServiceImpl implements ValidateCodeService {
         stringRedisTemplate.opsForHash().put(cacheKey, VALUE_HASH_KEY, code.getCode());
         stringRedisTemplate.opsForHash().put(cacheKey, INSERT_TIME_HASH_KEY,
                 String.valueOf(System.currentTimeMillis()));
+        stringRedisTemplate.expire(cacheKey, 5, TimeUnit.MINUTES);
         smsUtils.sentSmsCode(sms, code.getCode());
     }
 
@@ -103,7 +104,7 @@ public class ValidateCodeServiceImpl implements ValidateCodeService {
             return false;
         }
         long timeSinceLastSent = System.currentTimeMillis() - Long.parseLong((String)insertTime);
-        return timeSinceLastSent <= TimeUnit.SECONDS.toMillis(25);
+        return timeSinceLastSent <= TimeUnit.MINUTES.toMillis(1);
     }
 
     private String buildRedisKey(String destination, ValidateCodeTypeEnum validateCodeTypeEnum) {

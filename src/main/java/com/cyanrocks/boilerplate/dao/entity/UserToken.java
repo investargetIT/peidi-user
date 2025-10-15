@@ -33,4 +33,8 @@ public class UserToken {
     @Column(name = "expire_time")
     @Comment("过期时间")
     private LocalDateTime expireTime;
+
+    @Column(name = "user_id")
+    @Comment("user表id")
+    private Long userId;
 }

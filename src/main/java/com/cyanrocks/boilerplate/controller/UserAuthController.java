@@ -1,8 +1,15 @@
 package com.cyanrocks.boilerplate.controller;
 
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.cyanrocks.boilerplate.constants.ErrorCodeEnum;
 import com.cyanrocks.boilerplate.constants.ValidateCodeTypeEnum;
+import com.cyanrocks.boilerplate.dao.entity.User;
+import com.cyanrocks.boilerplate.dao.entity.UserInfo;
+import com.cyanrocks.boilerplate.dao.entity.UserSite;
 import com.cyanrocks.boilerplate.dao.entity.UserToken;
+import com.cyanrocks.boilerplate.dao.mapper.UserInfoMapper;
+import com.cyanrocks.boilerplate.dao.mapper.UserMapper;
+import com.cyanrocks.boilerplate.dao.mapper.UserSiteMapper;
 import com.cyanrocks.boilerplate.dao.mapper.UserTokenMapper;
 import com.cyanrocks.boilerplate.exception.BusinessException;
 import com.cyanrocks.boilerplate.exception.IllegalArgException;
@@ -25,7 +32,11 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.validation.Valid;
 import java.io.IOException;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.List;
 
 /**
  * @Author wjq
@@ -49,6 +60,32 @@ public class UserAuthController {
 
     @Autowired
     private UserTokenMapper userTokenMapper;
+    @Autowired
+    private UserMapper userMapper;
+    @Autowired
+    private UserInfoMapper userInfoMapper;
+    @Autowired
+    private UserSiteMapper userSiteMapper;
+
+    @PostMapping("/info")
+    @ApiOperation(value = "更新用户信息")
+    public void updateUserInfo(@RequestBody UserInfo req) {
+//        if (null !=req.getHireDateStr() ){
+//            LocalDate utcDate = Instant.ofEpochMilli(Long.parseLong(req.getHireDateStr()))
+//                    .atZone(ZoneId.of("UTC"))
+//                    .toLocalDate();
+//            req.setHireDate(utcDate);
+//        }
+        UserInfo userInfoRes = userInfoMapper.selectOne(Wrappers.<UserInfo>lambdaQuery().eq(UserInfo::getUserId,req.getUserId()));
+        if (null == userInfoRes){
+            req.setCreatedAt(LocalDateTime.now());
+            req.setHireDate(LocalDate.now());
+            userInfoMapper.insert(req);
+        }else {
+            req.setUpdatedAt(LocalDateTime.now());
+            userInfoMapper.update(req, Wrappers.<UserInfo>lambdaQuery().eq(UserInfo::getUserId,req.getUserId()));
+        }
+    }
 
     // 邮箱注册
     @PostMapping("/email-register")
@@ -147,16 +184,33 @@ public class UserAuthController {
         vo.setHasLoginUser(true);
         vo.setService(userToken.getService());
         vo.setUsername(userToken.getUsername());
+        vo.setId(userToken.getUserId());
+        if (null != userToken.getUserId()){
+            System.out.println(userToken.getUserId());
+            User user = userMapper.selectById(userToken.getUserId());
+            vo.setDataSource(user.getDataSource());
+            vo.setDeptId(user.getDeptId());
+        }
         return vo;
+    }
+
+    @GetMapping("/site")
+    @ApiOperation(value = "获取基地列表")
+    public List<UserSite> getSiteList() {
+        return userSiteMapper.selectAll();
     }
 
     @PostMapping("/validate-code")
     @ApiOperation(value = "发送验证码")
     public void sendCode(@Valid @RequestBody ValidateCodeRequest validateCodeCommand, HttpServletRequest request) {
-        if ("wms".equals(request.getHeader("PLATFORM")) || "oms".equals(request.getHeader("PLATFORM"))){
-            validateCodeService.generateValidateCodeAndSend(validateCodeCommand.getDestination(),
-                    ValidateCodeTypeEnum.of(validateCodeCommand.getCodeType().toLowerCase()));
-        }
+//        validateCodeService.generateValidateCodeAndSend(validateCodeCommand.getDestination(),
+//                ValidateCodeTypeEnum.of(validateCodeCommand.getCodeType().toLowerCase()));
+//        if ("wms".equals(request.getHeader("PLATFORM")) || "oms".equals(request.getHeader("PLATFORM")) || "srm".equals(request.getHeader("PLATFORM"))){
+//            validateCodeService.generateValidateCodeAndSend(validateCodeCommand.getDestination(),
+//                    ValidateCodeTypeEnum.of(validateCodeCommand.getCodeType().toLowerCase()));
+//        }
+        validateCodeService.generateValidateCodeAndSend(validateCodeCommand.getDestination(),
+                ValidateCodeTypeEnum.of(validateCodeCommand.getCodeType().toLowerCase()));
     }
 
     @GetMapping("/check-code")

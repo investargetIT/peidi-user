@@ -18,8 +18,9 @@ import com.aliyun.dysmsapi20170525.models.SendSmsRequest;
 @Component
 public class SmsUtils {
 
-    private static final String SIGN_NAME = "Peidi验证码";
-    private static final String TEMPLATE_CODE = "SMS_465348269";
+    private static final String SIGN_NAME = "";
+    private static final String TEMPLATE_CODE = "";
+    private static final String PM_CODE = "";
 
     @Autowired
     private SmsConfig smsConfig;
@@ -36,6 +37,37 @@ public class SmsUtils {
             Client client = new Client(config);
             SendSmsRequest sendSmsRequest = new SendSmsRequest().setPhoneNumbers(phoneNumber).setSignName(SIGN_NAME)
                     .setTemplateCode(TEMPLATE_CODE).setTemplateParam(JSONUtil.toJsonStr(param));
+            // 复制代码运行请自行打印 API 的返回值
+            SendSmsResponse response = client.sendSmsWithOptions(sendSmsRequest, new com.aliyun.teautil.models.RuntimeOptions());
+            System.out.println(response);
+        } catch (TeaException error) {
+            // 此处仅做打印展示，请谨慎对待异常处理，在工程项目中切勿直接忽略异常。
+            // 错误 message
+            System.out.println(error.getMessage());
+            // 诊断地址
+            System.out.println(error.getData().get("Recommend"));
+        } catch (Exception _error) {
+            TeaException error = new TeaException(_error.getMessage(), _error);
+            // 此处仅做打印展示，请谨慎对待异常处理，在工程项目中切勿直接忽略异常。
+            // 错误 message
+            System.out.println(error.getMessage());
+            // 诊断地址
+            System.out.println(error.getData().get("Recommend"));
+        }
+    }
+
+    public void sentSmsPm(String phoneNumber, String content) {
+        //初始化账号Client
+        Config config = new Config().setAccessKeyId(smsConfig.getAccessKeyId()).setAccessKeySecret(smsConfig.getAccessKeySecret());
+        // Endpoint 请参考 https://api.aliyun.com/product/Dysmsapi
+        config.endpoint = smsConfig.getEndpoint();
+
+        try {
+            JSONObject param = new JSONObject();
+            param.put("content", content);
+            Client client = new Client(config);
+            SendSmsRequest sendSmsRequest = new SendSmsRequest().setPhoneNumbers(phoneNumber).setSignName(SIGN_NAME)
+                    .setTemplateCode(PM_CODE).setTemplateParam(JSONUtil.toJsonStr(param));
             // 复制代码运行请自行打印 API 的返回值
             SendSmsResponse response = client.sendSmsWithOptions(sendSmsRequest, new com.aliyun.teautil.models.RuntimeOptions());
             System.out.println(response);

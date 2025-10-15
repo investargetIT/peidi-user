@@ -14,6 +14,8 @@ public class UserInfoDetails implements UserDetails {
 
     private static final long serialVersionUID = 1L;
 
+    private Long id;
+
     private String service;
 
     private String password;
@@ -29,6 +31,14 @@ public class UserInfoDetails implements UserDetails {
     private String email;
 
     private Long adminId;
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
 
     public Long getAdminId() {
         return adminId;

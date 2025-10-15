@@ -19,6 +19,9 @@ public class EmailRegistrationRequest {
     @ApiModelProperty(value = "邮箱")
     private String email;
 
+    @ApiModelProperty(value = "手机号")
+    private String mobile;
+
     @NotNull
     @ApiModelProperty(value = "邮箱验证码")
     private String emailCode;
@@ -30,5 +33,11 @@ public class EmailRegistrationRequest {
     @NotNull
     @ApiModelProperty(value = "密码")
     private String password;
+
+    @ApiModelProperty(value = "数据源")
+    private Long dataSource;
+
+    @ApiModelProperty(value = "钉钉id")
+    private String dingId;
 
 }

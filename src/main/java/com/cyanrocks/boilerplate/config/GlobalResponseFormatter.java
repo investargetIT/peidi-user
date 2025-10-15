@@ -35,6 +35,11 @@ public class GlobalResponseFormatter implements ResponseBodyAdvice<Object> {
         if (o instanceof String) {
             return JSONUtil.toJsonStr(genericResponse);
         }
+        // 处理 byte[] 类型
+        if (o instanceof byte[]) {
+            // 直接返回 byte[]，不进行封装
+            return o;
+        }
         return GenericResponse.success(o);
     }
 

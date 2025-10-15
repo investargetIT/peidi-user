@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.cyanrocks.boilerplate.dao.entity.User;
 import com.cyanrocks.boilerplate.dao.mapper.UserMapper;
 import com.cyanrocks.boilerplate.security.authentication.UserInfoDetails;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,13 +29,23 @@ public class PasswordLoginUserDetailService implements UserDetailsService {
     @Override
     public UserDetails loadUserByUsername(String principal) throws AuthenticationException {
         String username = principal.split("&")[0];
-        String service = principal.split("&")[1];
-        if (logger.isInfoEnabled()) {
-            logger.info("用户名密码方式登陆{}, 帐号={}", service, username);
+        String site;
+        if (principal.split("&").length == 1 || StringUtils.isEmpty(principal.split("&")[1]) || "null".equals(principal.split("&")[1])){
+            //默认佩蒂杭州
+            site = "3";
+        }else {
+            site = principal.split("&")[1];
         }
-        User user = userMapper.selectOne(Wrappers.<User>lambdaQuery().eq(User::getEmail,username).or().eq(User::getMobile,username));
+
+        if (logger.isInfoEnabled()) {
+            logger.info("用户名密码方式登陆, 帐号={}", principal);
+        }
+        User user = userMapper.selectOne(Wrappers.<User>lambdaQuery().eq(User::getEmail,username).eq(User::getDataSource,site));
+        if (null == user){
+            user = userMapper.selectOne(Wrappers.<User>lambdaQuery().eq(User::getMobile,username).eq(User::getDataSource,site));
+        }
         if (null == user) {
-            throw new UsernameNotFoundException(String.format("%s user not exist", username));
+            throw new UsernameNotFoundException(String.format("%s user not exist", principal));
         }
         UserInfoDetails userInfoDetails = new UserInfoDetails();
         userInfoDetails.setUserId(user.getId());
@@ -42,7 +53,8 @@ public class PasswordLoginUserDetailService implements UserDetailsService {
         userInfoDetails.setPhone(user.getMobile());
         userInfoDetails.setEmail(user.getEmail());
         userInfoDetails.setPassword(user.getPassword());
-        userInfoDetails.setService(service);
+        userInfoDetails.setId(user.getId());
         return userInfoDetails;
     }
+
 }

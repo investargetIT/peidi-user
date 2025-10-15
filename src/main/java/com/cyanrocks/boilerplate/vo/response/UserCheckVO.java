@@ -9,8 +9,11 @@ import lombok.Data;
 @Data
 public class UserCheckVO {
 
+    private Long id;
     private Boolean hasLoginUser;
     private String username;
     private String service;
+    private Long dataSource;
+    private String deptId;
 
 }
