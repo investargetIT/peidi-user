@@ -38,6 +38,12 @@ public class DingController {
         return dingUtils.getDingDepartment(deptId);
     }
 
+    @GetMapping("/parentbyuser")
+    @ApiOperation(value = "根据用户钉钉id获取上级部门列表")
+    public JSONObject getDingParentbyuser(@RequestParam(value="userId") String userId) {
+        return dingUtils.getDingParentbyuser(userId);
+    }
+
     @GetMapping("/jsapi")
     @ApiOperation(value = "获取JSAPI鉴权")
     public JSONObject getDingJsapi(@RequestParam(value="nonceStr") String nonceStr,@RequestParam(value="url") String url) {

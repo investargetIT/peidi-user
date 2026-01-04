@@ -15,5 +15,6 @@ public class UserCheckVO {
     private String service;
     private Long dataSource;
     private String deptId;
+    private String dingId;
 
 }

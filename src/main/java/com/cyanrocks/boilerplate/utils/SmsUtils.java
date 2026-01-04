@@ -18,10 +18,6 @@ import com.aliyun.dysmsapi20170525.models.SendSmsRequest;
 @Component
 public class SmsUtils {
 
-    private static final String SIGN_NAME = "";
-    private static final String TEMPLATE_CODE = "";
-    private static final String PM_CODE = "";
-
     @Autowired
     private SmsConfig smsConfig;
 
@@ -35,8 +31,8 @@ public class SmsUtils {
             JSONObject param = new JSONObject();
             param.put("code", content);
             Client client = new Client(config);
-            SendSmsRequest sendSmsRequest = new SendSmsRequest().setPhoneNumbers(phoneNumber).setSignName(SIGN_NAME)
-                    .setTemplateCode(TEMPLATE_CODE).setTemplateParam(JSONUtil.toJsonStr(param));
+            SendSmsRequest sendSmsRequest = new SendSmsRequest().setPhoneNumbers(phoneNumber).setSignName(smsConfig.getSignName())
+                    .setTemplateCode(smsConfig.getTemplateCode()).setTemplateParam(JSONUtil.toJsonStr(param));
             // 复制代码运行请自行打印 API 的返回值
             SendSmsResponse response = client.sendSmsWithOptions(sendSmsRequest, new com.aliyun.teautil.models.RuntimeOptions());
             System.out.println(response);
@@ -66,8 +62,8 @@ public class SmsUtils {
             JSONObject param = new JSONObject();
             param.put("content", content);
             Client client = new Client(config);
-            SendSmsRequest sendSmsRequest = new SendSmsRequest().setPhoneNumbers(phoneNumber).setSignName(SIGN_NAME)
-                    .setTemplateCode(PM_CODE).setTemplateParam(JSONUtil.toJsonStr(param));
+            SendSmsRequest sendSmsRequest = new SendSmsRequest().setPhoneNumbers(phoneNumber).setSignName(smsConfig.getSignName())
+                    .setTemplateCode(smsConfig.getPmCode()).setTemplateParam(JSONUtil.toJsonStr(param));
             // 复制代码运行请自行打印 API 的返回值
             SendSmsResponse response = client.sendSmsWithOptions(sendSmsRequest, new com.aliyun.teautil.models.RuntimeOptions());
             System.out.println(response);

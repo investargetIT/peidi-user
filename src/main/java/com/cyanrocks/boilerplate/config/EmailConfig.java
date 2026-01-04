@@ -10,17 +10,15 @@ import org.springframework.stereotype.Component;
  * @Date 2024/8/16 9:43
  */
 @Configuration
-@PropertySource("classpath:sms.properties")
-@ConfigurationProperties(prefix = "sms.aliyunsms")
+@PropertySource("classpath:email.properties")
+@ConfigurationProperties(prefix = "email.aliyunemail")
 @Component
-public class SmsConfig {
+public class EmailConfig {
 
     private String accessKeyId;
     private String accessKeySecret;
     private String endpoint;
-    private String signName;
     private String templateCode;
-    private String pmCode;
 
     public String getAccessKeyId() {
         return accessKeyId;
@@ -46,27 +44,11 @@ public class SmsConfig {
         this.endpoint = endpoint;
     }
 
-    public String getSignName() {
-        return signName;
-    }
-
-    public void setSignName(String signName) {
-        this.signName = signName;
-    }
-
     public String getTemplateCode() {
         return templateCode;
     }
 
     public void setTemplateCode(String templateCode) {
         this.templateCode = templateCode;
-    }
-
-    public String getPmCode() {
-        return pmCode;
-    }
-
-    public void setPmCode(String pmCode) {
-        this.pmCode = pmCode;
     }
 }

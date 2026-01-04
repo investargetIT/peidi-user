@@ -1,6 +1,7 @@
 package com.cyanrocks.boilerplate.controller;
 
 import cn.hutool.json.JSONObject;
+import cn.hutool.json.JSONUtil;
 import com.cyanrocks.boilerplate.utils.DingUtils;
 import com.cyanrocks.boilerplate.utils.OaUtils;
 import io.swagger.annotations.Api;
@@ -26,8 +27,14 @@ public class OaController {
 
     @GetMapping("/test")
     @ApiOperation(value = "测试")
-    public void test(@RequestParam(value="page") Integer page) {
-        oaUtils.restfulTest(page);
+    public String test(@RequestParam(value="curpage") Integer curpage) {
+//        oaUtils.restfulTest(page);
+        JSONObject jsonObject = new JSONObject();
+        JSONObject params = new JSONObject();
+        params.set("pagesize",100);
+        params.set("curpage",curpage);
+        jsonObject.set("params",params);
+        return oaUtils.restful("https://oa.peidibrand.com:4433","/api/hrm/resful/getHrmUserInfoWithPage", JSONUtil.toJsonStr(jsonObject));
     }
 
 

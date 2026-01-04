@@ -2,6 +2,7 @@ package com.cyanrocks.boilerplate.validate.service;
 
 
 import com.cyanrocks.boilerplate.constants.ValidateCodeTypeEnum;
+import com.cyanrocks.boilerplate.vo.request.ForgetPasswordRequest;
 
 public interface ValidateCodeService {
 

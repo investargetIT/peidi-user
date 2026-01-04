@@ -41,7 +41,7 @@ public class UserFacade {
             //钉钉免登邮箱注册
             User user = userMapper.selectOne(Wrappers.<User>lambdaQuery()
                     .eq(User::getMobile,registrationRequest.getMobile())
-                    .eq(User::getDataSource,registrationRequest.getDataSource() == null ? 1L: registrationRequest.getDataSource()));
+                    .eq(User::getDataSource,registrationRequest.getDataSource() == null ? 3L: registrationRequest.getDataSource()));
             if (null != user){
                 //钉钉免登已用手机号注册
                 user.setEmail(registrationRequest.getEmail());
@@ -144,9 +144,43 @@ public class UserFacade {
         userMapper.update(user,Wrappers.<User>lambdaQuery().eq(User::getMobile,updatePasswordCommand.getIdentifier()));
     }
 
+    public void updatePasswordByOld(UpdatePasswordRequest updatePasswordCommand) throws IOException {
+        User user = userMapper.selectById(updatePasswordCommand.getIdentifier());
+        if (null == user) {
+            throw new BusinessException(ErrorCodeEnum.USER_ACCOUNT_NOT_EXIST.getCode(),
+                    "USER_ACCOUNT_NOT_EXIST");
+        } else {
+            // 由于密码做了加密，因此必须先将旧的密码查询出来，然后与用户填写的进行对比
+            if (!passwordEncoder.matches(updatePasswordCommand.getOldPassword(),user.getPassword())) {
+                throw new BusinessException(ErrorCodeEnum.ORIGINAL_CREDENTIAL_NOT_MATCH.getCode(),
+                        "ORIGINAL_CREDENTIAL_NOT_MATCH");
+            }
+        }
+        user.setPassword(passwordEncoder.encode(updatePasswordCommand.getNewPassword()));
+        userMapper.updateById(user);
+    }
+
+    public void resetPassword(ForgetPasswordRequest forgetPasswordRequest) {
+        ValidateCodeTypeEnum validateCodeType = ValidateCodeTypeEnum.of(forgetPasswordRequest.getCodeType().toLowerCase());
+        switch (validateCodeType.getChannel()) {
+
+            case EMAIL: {
+                forgetPasswordByEmail(forgetPasswordRequest);
+                break;
+            }
+            case SMS: {
+                forgetPasswordBySms(forgetPasswordRequest);
+                break;
+            }
+            default: {
+                throw new RuntimeException(String.format("不合法的重置通道:%s", validateCodeType.getChannel().name()));
+            }
+        }
+    }
+
     public void forgetPasswordByEmail(ForgetPasswordRequest forgetPasswordCommand) {
         validateCodeService.checkCodeEffective(forgetPasswordCommand.getIdentifier(), forgetPasswordCommand.getValidateCode(),
-                ValidateCodeTypeEnum.SMS_RESET_PASSWORD);
+                ValidateCodeTypeEnum.EMAIL_RESET_PASSWORD);
         User user = userMapper.selectOne(Wrappers.<User>lambdaQuery()
                 .eq(User::getEmail,forgetPasswordCommand.getIdentifier()));
         if (null == user) {
@@ -158,14 +192,16 @@ public class UserFacade {
     }
 
     public void forgetPasswordBySms(ForgetPasswordRequest forgetPasswordCommand) {
+        validateCodeService.checkCodeEffective(forgetPasswordCommand.getIdentifier(), forgetPasswordCommand.getValidateCode(),
+                ValidateCodeTypeEnum.SMS_RESET_PASSWORD);
         User user = userMapper.selectOne(Wrappers.<User>lambdaQuery()
-                .eq(User::getEmail,forgetPasswordCommand.getIdentifier()));
+                .eq(User::getMobile,forgetPasswordCommand.getIdentifier()));
         if (null == user) {
             throw new BusinessException(ErrorCodeEnum.USER_ACCOUNT_NOT_EXIST.getCode(),
                     "USER_ACCOUNT_NOT_EXIST");
         }
         user.setPassword(passwordEncoder.encode(forgetPasswordCommand.getNewPassword()));
-        userMapper.update(user,Wrappers.<User>lambdaQuery().eq(User::getEmail,forgetPasswordCommand.getIdentifier()));
+        userMapper.update(user,Wrappers.<User>lambdaQuery().eq(User::getMobile,forgetPasswordCommand.getIdentifier()));
     }
 
 }

@@ -1,13 +1,19 @@
 package com.cyanrocks.boilerplate.validate.service.impl;
 
 
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.cyanrocks.boilerplate.constants.ErrorCodeEnum;
 import com.cyanrocks.boilerplate.constants.ValidateCodeTypeEnum;
+import com.cyanrocks.boilerplate.dao.entity.User;
+import com.cyanrocks.boilerplate.dao.mapper.UserMapper;
 import com.cyanrocks.boilerplate.exception.BusinessException;
+import com.cyanrocks.boilerplate.utils.EmailUtils;
 import com.cyanrocks.boilerplate.utils.SmsUtils;
 import com.cyanrocks.boilerplate.validate.service.ValidateCode;
 import com.cyanrocks.boilerplate.validate.service.ValidateCodeGenerator;
 import com.cyanrocks.boilerplate.validate.service.ValidateCodeService;
+import com.cyanrocks.boilerplate.vo.request.ForgetPasswordRequest;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,6 +48,12 @@ public class ValidateCodeServiceImpl implements ValidateCodeService {
 
     @Autowired
     private SmsUtils smsUtils;
+
+    @Autowired
+    private EmailUtils emailUtils;
+
+    @Autowired
+    private UserMapper userMapper;
 
     @Override
     public void checkCodeEffective(String identifier, String code, ValidateCodeTypeEnum validateCodeType) {
@@ -79,6 +91,12 @@ public class ValidateCodeServiceImpl implements ValidateCodeService {
 
     @Override
     public void generateSmsCodeAndSend(String sms, ValidateCodeTypeEnum validateCodeType) {
+        User user = userMapper.selectOne(Wrappers.<User>lambdaQuery()
+                .eq(User::getMobile,sms));
+        if (null == user){
+            throw new BusinessException(ErrorCodeEnum.ACCOUNT_UN_ALLOWED.getCode(),
+                    String.format("%s 帐号不允许修改密码", sms));
+        }
         String cacheKey = buildRedisKey(sms, validateCodeType);
         ValidateCode code = validateCodeGenerator.generate(validateCodeType);
         if (isCodeSentTooOften(cacheKey)) {
@@ -95,7 +113,24 @@ public class ValidateCodeServiceImpl implements ValidateCodeService {
 
     @Override
     public void generateEmailCodeAndSend(String email, ValidateCodeTypeEnum validateCodeType) {
-
+        User user = userMapper.selectOne(Wrappers.<User>lambdaQuery()
+                .eq(User::getEmail,email));
+        if (null == user){
+            throw new BusinessException(ErrorCodeEnum.ACCOUNT_UN_ALLOWED.getCode(),
+                    String.format("%s 帐号不允许修改密码", email));
+        }
+        String cacheKey = buildRedisKey(email, validateCodeType);
+        ValidateCode code = validateCodeGenerator.generate(validateCodeType);
+        if (isCodeSentTooOften(cacheKey)) {
+            throw new BusinessException(ErrorCodeEnum.VALIDATE_CODE_SENT_TOO_OFTEN.getCode(),
+                    String.format("%s 验证码发送太频繁，请稍后再试", email));
+        }
+        // 构建hash结构，存储验证码的值以及验证码的设置时间
+        stringRedisTemplate.opsForHash().put(cacheKey, VALUE_HASH_KEY, code.getCode());
+        stringRedisTemplate.opsForHash().put(cacheKey, INSERT_TIME_HASH_KEY,
+                String.valueOf(System.currentTimeMillis()));
+        stringRedisTemplate.expire(cacheKey, 5, TimeUnit.MINUTES);
+        emailUtils.sentEmailCode(email, code.getCode());
     }
 
     private boolean isCodeSentTooOften(String cacheKey) {

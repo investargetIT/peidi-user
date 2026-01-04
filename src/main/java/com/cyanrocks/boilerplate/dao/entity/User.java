@@ -54,4 +54,7 @@ public class User {
     @Comment("钉钉部门id")
     private String deptId;
 
+    @Column(name = "oa_delete")
+    @Comment("oa上删除")
+    private Boolean oaDelete;
 }
