@@ -17,6 +17,7 @@ import com.cyanrocks.boilerplate.utils.http.HttpResponseContent;
 import com.cyanrocks.boilerplate.utils.http.HttpTimeoutConfig;
 import com.cyanrocks.boilerplate.utils.http.HttpUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
@@ -35,18 +36,21 @@ import java.util.List;
 @Component
 public class DingUtils {
 
-    private static final String DingDing_APPID = "";
-    private static final String DingDing_APPKEY = "";
-    private static final String DingDing_APPSECRET = "";
-    private static final String PM_APPKEY = "";
-    private static final String PM_APPSECRET = "";
+    @Value("${dingding.appkey}")
+    private String DingDing_APPKEY;
+
+    @Value("${dingding.appsecret}")
+    private String DingDing_APPSECRET;
+
+    @Value("${pm.robot.id}")
+    private String PM_ROBOT_ID;
+
+    @Value("${pm.robot.id}")
+    private String UNION_ID;
+
     private static final String REDIS_KEY = "ding:token";
     private static final String REDIS_OAUTH2_KEY = "ding:oauth2token";
     private static final String REDIS_JSAPI_TICKET = "ding:jsapiTicket";
-    private static final String PM_ROBOT_ID = "";
-    private static final String UNION_ID = "";//沈烨丽unionId
-//    private static final String UNION_ID = "";//王家琦unionId
-
 
     @Autowired
     private StringRedisTemplate stringRedisTemplate;
@@ -86,6 +90,29 @@ public class DingUtils {
             token = this.getToken();
         }
         String url = "https://oapi.dingtalk.com/topapi/v2/user/get?access_token=" + token;
+        JSONObject jsonObject = new JSONObject();
+        jsonObject.set("userid", userId);
+        HttpResponseContent content;
+        try {
+            content = httpClientService.doPost(url, null, JSONUtil.toJsonStr(jsonObject),
+                    HttpUtils.initHttpClientContext(null, new HttpTimeoutConfig(300000)));
+        } catch (Exception e) {
+            return null;
+        }
+        System.out.println(content);
+        JSONObject contentJson = JSONUtil.parseObj(content.getContent());
+        if (200 != content.getStatusCode() || 0 != contentJson.getInt("errcode")) {
+            return null;
+        }
+        return contentJson.getJSONObject("result");
+    }
+
+    public JSONObject getDingParentbyuser(String userId) {
+        String token = stringRedisTemplate.opsForValue().get(REDIS_KEY);
+        if (null == token) {
+            token = this.getToken();
+        }
+        String url = "https://oapi.dingtalk.com/topapi/v2/department/listparentbyuser?access_token=" + token;
         JSONObject jsonObject = new JSONObject();
         jsonObject.set("userid", userId);
         HttpResponseContent content;
@@ -214,8 +241,8 @@ public class DingUtils {
             config.regionId = "central";
             com.aliyun.dingtalkoauth2_1_0.Client client = new com.aliyun.dingtalkoauth2_1_0.Client(config);
             com.aliyun.dingtalkoauth2_1_0.models.GetAccessTokenRequest getAccessTokenRequest = new com.aliyun.dingtalkoauth2_1_0.models.GetAccessTokenRequest()
-                    .setAppKey(PM_APPKEY)
-                    .setAppSecret(PM_APPSECRET);
+                    .setAppKey(DingDing_APPKEY)
+                    .setAppSecret(DingDing_APPSECRET);
             String token = client.getAccessToken(getAccessTokenRequest).getBody().accessToken;
             stringRedisTemplate.opsForValue().set(REDIS_OAUTH2_KEY, token);
             stringRedisTemplate.expire(REDIS_OAUTH2_KEY, Duration.ofSeconds(7200));

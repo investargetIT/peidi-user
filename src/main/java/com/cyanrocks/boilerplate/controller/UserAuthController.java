@@ -109,12 +109,6 @@ public class UserAuthController {
 //        response.getWriter().write(objectMapper.writeValueAsString(GenericResponse.success()));
 //    }
 
-//    @PostMapping("/email-reset-password")
-//    @ApiOperation(value = "利用邮箱重置密码")
-//    public void forgetPasswordByEmail(@RequestBody ForgetPasswordRequest forgetPasswordCommand) {
-//        userFacade.forgetPasswordByEmail(forgetPasswordCommand);
-//    }
-
     // 手机注册
     @PostMapping("/sms-register")
     @ApiOperation(value = "使用手机注册账户")
@@ -137,12 +131,26 @@ public class UserAuthController {
         response.getWriter().write(objectMapper.writeValueAsString(GenericResponse.success()));
     }
 
-    @PostMapping("/sms-reset-password")
-    @ApiOperation(value = "利用手机重置密码")
-    public void forgetPasswordBySms(@Valid @RequestBody ForgetPasswordRequest forgetPasswordCommand) {
-        userFacade.forgetPasswordByEmail(forgetPasswordCommand);
+    @PostMapping("/update-password")
+    @ApiOperation(value = "利用旧密码更新密码")
+    public void updatePasswordByOld(@Valid @RequestBody UpdatePasswordRequest updatePasswordCommand,
+                                    HttpServletRequest request, HttpServletResponse response) throws IOException {
+        userFacade.updatePasswordByOld(updatePasswordCommand);
+        // // 更新密码后清除登陆状态
+        Cookie cookie = new Cookie("JSESSIONID", (String)null);
+        String cookiePath = request.getContextPath() + "/";
+        cookie.setPath(cookiePath);
+        cookie.setMaxAge(0);
+        response.addCookie(cookie);
+        response.setContentType("application/json;charset=UTF-8");
+        response.getWriter().write(objectMapper.writeValueAsString(GenericResponse.success()));
     }
 
+    @PostMapping("/reset-password")
+    @ApiOperation(value = "重置密码")
+    public void resetPassword(@Valid @RequestBody ForgetPasswordRequest forgetPasswordCommand) {
+        userFacade.resetPassword(forgetPasswordCommand);
+    }
 
     /**
      * 当需要身份认证时，跳转到这里
@@ -190,6 +198,7 @@ public class UserAuthController {
             User user = userMapper.selectById(userToken.getUserId());
             vo.setDataSource(user.getDataSource());
             vo.setDeptId(user.getDeptId());
+            vo.setDingId(user.getDingId());
         }
         return vo;
     }
@@ -202,13 +211,7 @@ public class UserAuthController {
 
     @PostMapping("/validate-code")
     @ApiOperation(value = "发送验证码")
-    public void sendCode(@Valid @RequestBody ValidateCodeRequest validateCodeCommand, HttpServletRequest request) {
-//        validateCodeService.generateValidateCodeAndSend(validateCodeCommand.getDestination(),
-//                ValidateCodeTypeEnum.of(validateCodeCommand.getCodeType().toLowerCase()));
-//        if ("wms".equals(request.getHeader("PLATFORM")) || "oms".equals(request.getHeader("PLATFORM")) || "srm".equals(request.getHeader("PLATFORM"))){
-//            validateCodeService.generateValidateCodeAndSend(validateCodeCommand.getDestination(),
-//                    ValidateCodeTypeEnum.of(validateCodeCommand.getCodeType().toLowerCase()));
-//        }
+    public void sendCode(@Valid @RequestBody ValidateCodeRequest validateCodeCommand) {
         validateCodeService.generateValidateCodeAndSend(validateCodeCommand.getDestination(),
                 ValidateCodeTypeEnum.of(validateCodeCommand.getCodeType().toLowerCase()));
     }

@@ -12,6 +12,7 @@ import cn.hutool.json.JSONUtil;
 import com.cyanrocks.boilerplate.dao.entity.UserOa;
 import com.cyanrocks.boilerplate.dao.mapper.UserOaMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
@@ -28,23 +29,29 @@ public class OaUtils {
     @Autowired
     private UserOaMapper userOaMapper;
 
+    @Value("${oa.secret}")
+    private String SECRET;
+
+    @Value("${oa.spk}")
+    private String SPK;
+
+    /**
+     * ecology系统发放的授权许可证(appid)
+     */
+    @Value("${oa.appid}")
+    private String APPID;
+
     /**
      * 模拟缓存服务
      */
     private static final Map<String,String> SYSTEM_CACHE = new HashMap <>();
 
     /**
-     * ecology系统发放的授权许可证(appid)
-     */
-    private static final String APPID = "";
-
-
-    /**
      * 第一步：
      *
      * 调用ecology注册接口,根据appid进行注册,将返回服务端公钥和Secret信息
      */
-    public static Map<String,Object> regist(String address){
+    public Map<String,Object> regist(String address){
 
         //获取当前系统RSA加密的公钥
         RSA rsa = new RSA();
@@ -81,23 +88,22 @@ public class OaUtils {
      *
      * 通过第一步中注册系统返回信息进行获取token信息
      */
-    public static Map<String,Object> getoken(String address){
+    public Map<String,Object> getoken(String address){
         // 从系统缓存或者数据库中获取ECOLOGY系统公钥和Secret信息
-        String secret = SYSTEM_CACHE.get("SERVER_SECRET");
-        String spk = SYSTEM_CACHE.get("SERVER_PUBLIC_KEY");
-
+//        String secret = SYSTEM_CACHE.get("SERVER_SECRET");
+//        String spk = SYSTEM_CACHE.get("SERVER_PUBLIC_KEY");
         // 如果为空,说明还未进行注册,调用注册接口进行注册认证与数据更新
-        if (Objects.isNull(secret)||Objects.isNull(spk)){
-            regist(address);
-            // 重新获取最新ECOLOGY系统公钥和Secret信息
-            secret = SYSTEM_CACHE.get("SERVER_SECRET");
-            spk = SYSTEM_CACHE.get("SERVER_PUBLIC_KEY");
-        }
+//        if (Objects.isNull(secret)||Objects.isNull(spk)){
+//            regist(address);
+//            // 重新获取最新ECOLOGY系统公钥和Secret信息
+//            secret = SYSTEM_CACHE.get("SERVER_SECRET");
+//            spk = SYSTEM_CACHE.get("SERVER_PUBLIC_KEY");
+//        }
 
         // 公钥加密,所以RSA对象私钥为null
-        RSA rsa = new RSA(null,spk);
+        RSA rsa = new RSA(null,SPK);
         //对秘钥进行加密传输，防止篡改数据
-        String encryptSecret = rsa.encryptBase64(secret,CharsetUtil.CHARSET_UTF_8,KeyType.PublicKey);
+        String encryptSecret = rsa.encryptBase64(SECRET,CharsetUtil.CHARSET_UTF_8,KeyType.PublicKey);
 
         //调用ECOLOGY系统接口进行注册
         String data = HttpRequest.post(address+ "/api/ec/dev/auth/applytoken")
@@ -110,7 +116,6 @@ public class OaUtils {
         Map<String,Object> datas = JSONUtil.parseObj(data);
 
         //ECOLOGY返回的token
-        // TODO 为Token缓存设置过期时间
         SYSTEM_CACHE.put("SERVER_TOKEN",StrUtil.nullToEmpty((String)datas.get("token")));
 
         return datas;
@@ -127,7 +132,7 @@ public class OaUtils {
      *
      * 注意：ECOLOGY系统所有POST接口调用请求头请设置 "Content-Type","application/x-www-form-urlencoded; charset=utf-8"
      */
-    public static String restful(String address, String api, String jsonParams){
+    public String restful(String address, String api, String jsonParams){
 
         //ECOLOGY返回的token
         String token= SYSTEM_CACHE.get("SERVER_TOKEN");
@@ -135,9 +140,8 @@ public class OaUtils {
             token = (String) getoken(address).get("token");
         }
 
-        String spk = SYSTEM_CACHE.get("SERVER_PUBLIC_KEY");
         //封装请求头参数
-        RSA rsa = new RSA(null,spk);
+        RSA rsa = new RSA(null,SPK);
         //对用户信息进行加密传输,暂仅支持传输OA用户ID
         String encryptUserid = rsa.encryptBase64("1",CharsetUtil.CHARSET_UTF_8,KeyType.PublicKey);
 
@@ -148,7 +152,21 @@ public class OaUtils {
                 .header("userid",encryptUserid)
                 .body(jsonParams)
                 .execute().body();
-        System.out.println("testRestful()："+data);
+        if (data.contains("token不存在或者超时")){
+            token = (String) getoken(address).get("token");
+            //封装请求头参数
+            rsa = new RSA(null,SPK);
+            //对用户信息进行加密传输,暂仅支持传输OA用户ID
+            encryptUserid = rsa.encryptBase64("1",CharsetUtil.CHARSET_UTF_8,KeyType.PublicKey);
+
+            //调用ECOLOGY系统接口
+            data = HttpRequest.get(address + api)
+                    .header("appid",APPID)
+                    .header("token",token)
+                    .header("userid",encryptUserid)
+                    .body(jsonParams)
+                    .execute().body();
+        }
         return data;
     }
 
@@ -235,5 +253,4 @@ public class OaUtils {
 
 
     }
-
 }

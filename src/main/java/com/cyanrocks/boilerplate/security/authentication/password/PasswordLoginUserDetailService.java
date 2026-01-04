@@ -29,20 +29,20 @@ public class PasswordLoginUserDetailService implements UserDetailsService {
     @Override
     public UserDetails loadUserByUsername(String principal) throws AuthenticationException {
         String username = principal.split("&")[0];
-        String site;
-        if (principal.split("&").length == 1 || StringUtils.isEmpty(principal.split("&")[1]) || "null".equals(principal.split("&")[1])){
-            //默认佩蒂杭州
-            site = "3";
-        }else {
-            site = principal.split("&")[1];
-        }
+//        String site;
+//        if (principal.split("&").length == 1 || StringUtils.isEmpty(principal.split("&")[1]) || "null".equals(principal.split("&")[1])){
+//            //默认佩蒂杭州
+//            site = "3";
+//        }else {
+//            site = principal.split("&")[1];
+//        }
 
         if (logger.isInfoEnabled()) {
             logger.info("用户名密码方式登陆, 帐号={}", principal);
         }
-        User user = userMapper.selectOne(Wrappers.<User>lambdaQuery().eq(User::getEmail,username).eq(User::getDataSource,site));
+        User user = userMapper.selectOne(Wrappers.<User>lambdaQuery().eq(User::getEmail,username).ne(User::getOaDelete,true));
         if (null == user){
-            user = userMapper.selectOne(Wrappers.<User>lambdaQuery().eq(User::getMobile,username).eq(User::getDataSource,site));
+            user = userMapper.selectOne(Wrappers.<User>lambdaQuery().eq(User::getMobile,username).ne(User::getOaDelete,true));
         }
         if (null == user) {
             throw new UsernameNotFoundException(String.format("%s user not exist", principal));

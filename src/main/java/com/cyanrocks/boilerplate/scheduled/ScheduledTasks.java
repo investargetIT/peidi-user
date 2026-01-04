@@ -42,7 +42,8 @@ public class ScheduledTasks {
         userList.forEach(user -> {
             JSONObject jsonObject = dingUtils.getUserinfoByUserid(user.getDingId());
             if (null == jsonObject){
-                userInfoMapper.delete(Wrappers.<UserInfo>lambdaQuery().eq(UserInfo::getUserId,user.getId()));
+                user.setOaDelete(true);
+                userMapper.updateById(user);
             }
         });
         System.out.println("离职用户处理结束: " + new java.util.Date());

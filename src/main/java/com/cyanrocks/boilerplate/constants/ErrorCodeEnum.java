@@ -68,6 +68,11 @@ public enum ErrorCodeEnum {
      * 用户未登陆
      */
     USER_NOT_LOGIN(AppErrorCode.USER.getCode() + "100013"),
+
+    /**
+     * 邮箱注册时 邮箱账号已经存在
+     */
+    ACCOUNT_UN_ALLOWED(AppErrorCode.USER.getCode() + "100014"),
     ;
 
 
