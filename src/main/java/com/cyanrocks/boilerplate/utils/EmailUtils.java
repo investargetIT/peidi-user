@@ -35,9 +35,9 @@ public class EmailUtils {
      */
     public com.aliyun.teaopenapi.Client createClient() throws Exception {
         com.aliyun.teaopenapi.models.Config config = new com.aliyun.teaopenapi.models.Config()
-                .setAccessKeyId(emailConfig.getAccessKeyId()).setAccessKeySecret(emailConfig.getAccessKeySecret());
+                .setAccessKeyId(emailConfig.getAccessKeyId()).setAccessKeySecret(emailConfig.getAccessKeySecret())
+                .setEndpoint(emailConfig.getEndpoint());
         // Endpoint 请参考 https://api.aliyun.com/product/Dm
-        config.endpoint = "dm.aliyuncs.com";
         return new com.aliyun.teaopenapi.Client(config);
     }
 

@@ -94,8 +94,8 @@ public class ValidateCodeServiceImpl implements ValidateCodeService {
         User user = userMapper.selectOne(Wrappers.<User>lambdaQuery()
                 .eq(User::getMobile,sms));
         if (null == user){
-            throw new BusinessException(ErrorCodeEnum.ACCOUNT_UN_ALLOWED.getCode(),
-                    String.format("%s 帐号不允许修改密码", sms));
+            throw new BusinessException(ErrorCodeEnum.USER_ACCOUNT_NOT_EXIST.getCode(),
+                    String.format("%s 帐号不存在", sms));
         }
         String cacheKey = buildRedisKey(sms, validateCodeType);
         ValidateCode code = validateCodeGenerator.generate(validateCodeType);
@@ -116,8 +116,8 @@ public class ValidateCodeServiceImpl implements ValidateCodeService {
         User user = userMapper.selectOne(Wrappers.<User>lambdaQuery()
                 .eq(User::getEmail,email));
         if (null == user){
-            throw new BusinessException(ErrorCodeEnum.ACCOUNT_UN_ALLOWED.getCode(),
-                    String.format("%s 帐号不允许修改密码", email));
+            throw new BusinessException(ErrorCodeEnum.USER_ACCOUNT_NOT_EXIST.getCode(),
+                    String.format("%s 帐号不存在", email));
         }
         String cacheKey = buildRedisKey(email, validateCodeType);
         ValidateCode code = validateCodeGenerator.generate(validateCodeType);
