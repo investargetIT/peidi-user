@@ -27,7 +27,6 @@ public class ForgetPasswordRequest {
     private String validateCode;
 
     @NotNull
-    @ApiModelProperty(value = "验证码类型", required = true, allowableValues = "sms_register,sms_reset_password,email_reset_password",
-            dataType = "String")
+    @ApiModelProperty(value = "验证码类型", required = true, dataType = "String")
     private String codeType;
 }

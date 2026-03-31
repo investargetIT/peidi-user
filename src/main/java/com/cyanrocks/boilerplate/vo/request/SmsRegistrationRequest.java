@@ -15,7 +15,7 @@ import javax.validation.constraints.NotNull;
 @ApiModel(value = "手机注册实体参数")
 public class SmsRegistrationRequest {
 
-    @ValidPhonePattern
+//    @ValidPhonePattern
     @NotNull
     @ApiModelProperty(value = "手机号", required = true, dataType = "String")
     private String mobile;
