@@ -45,8 +45,9 @@ public class DingUtils {
     @Value("${pm.robot.id}")
     private String PM_ROBOT_ID;
 
-    @Value("${pm.robot.id}")
+    @Value("${union.id}")
     private String UNION_ID;
+
 
     private static final String REDIS_KEY = "ding:token";
     private static final String REDIS_OAUTH2_KEY = "ding:oauth2token";
@@ -84,6 +85,11 @@ public class DingUtils {
         return contentJson.getJSONObject("result").getStr("userid");
     }
 
+    /**
+     * 获取钉钉用户信息
+     * @param userId 钉钉用户ID
+     * @return 用户信息JSON对象，用户不存在返回null，API调用失败抛出异常
+     */
     public JSONObject getUserinfoByUserid(String userId) {
         String token = stringRedisTemplate.opsForValue().get(REDIS_KEY);
         if (null == token) {
@@ -97,13 +103,45 @@ public class DingUtils {
             content = httpClientService.doPost(url, null, JSONUtil.toJsonStr(jsonObject),
                     HttpUtils.initHttpClientContext(null, new HttpTimeoutConfig(300000)));
         } catch (Exception e) {
-            return null;
+            System.out.println("获取用户信息网络异常: " + e.getMessage());
+            throw new RuntimeException("获取钉钉用户信息网络异常: " + e.getMessage(), e);
         }
         System.out.println(content);
         JSONObject contentJson = JSONUtil.parseObj(content.getContent());
-        if (200 != content.getStatusCode() || 0 != contentJson.getInt("errcode")) {
+        int errcode = contentJson.getInt("errcode");
+
+        // Token过期，尝试刷新后重试一次
+        if (errcode == 40014 || errcode == 42001) {
+            System.out.println("Token已过期，尝试刷新Token重试");
+            stringRedisTemplate.delete(REDIS_KEY);
+            token = this.getToken();
+            url = "https://oapi.dingtalk.com/topapi/v2/user/get?access_token=" + token;
+            try {
+                content = httpClientService.doPost(url, null, JSONUtil.toJsonStr(jsonObject),
+                        HttpUtils.initHttpClientContext(null, new HttpTimeoutConfig(300000)));
+            } catch (Exception e) {
+                System.out.println("重试获取用户信息网络异常: " + e.getMessage());
+                throw new RuntimeException("获取钉钉用户信息网络异常: " + e.getMessage(), e);
+            }
+            contentJson = JSONUtil.parseObj(content.getContent());
+            errcode = contentJson.getInt("errcode");
+        }
+
+        if (200 != content.getStatusCode()) {
+            throw new RuntimeException("获取钉钉用户信息HTTP错误: " + content.getStatusCode());
+        }
+
+        // 用户不存在（已离职或被删除），返回null
+        if (errcode == 60121) {
+            System.out.println("用户不存在(已离职): userId=" + userId);
             return null;
         }
+
+        // 其他错误码，抛出异常
+        if (errcode != 0) {
+            throw new RuntimeException("获取钉钉用户信息失败: errcode=" + errcode + ", errmsg=" + contentJson.getStr("errmsg"));
+        }
+
         return contentJson.getJSONObject("result");
     }
 
@@ -414,19 +452,139 @@ public class DingUtils {
             config.regionId = "central";
             com.aliyun.dingtalktodo_1_0.Client client = new com.aliyun.dingtalktodo_1_0.Client(config);
             client.deleteTodoTaskWithOptions(UNION_ID, taskId, deleteTodoTaskRequest, deleteTodoTaskHeaders, new RuntimeOptions());
+            System.out.println("删除待办任务成功: taskId=" + taskId);
         } catch (TeaException err) {
             if (!com.aliyun.teautil.Common.empty(err.code) && !com.aliyun.teautil.Common.empty(err.message)) {
-                // err 中含有 code 和 message 属性，可帮助开发定位问题
+                System.out.println("删除待办任务失败: " + err.code + " " + err.message);
             }
 
         } catch (Exception _err) {
             TeaException err = new TeaException(_err.getMessage(), _err);
             if (!com.aliyun.teautil.Common.empty(err.code) && !com.aliyun.teautil.Common.empty(err.message)) {
-                // err 中含有 code 和 message 属性，可帮助开发定位问题
+                System.out.println("删除待办任务失败: " + err.code + " " + err.message);
             }
 
         }
 
     }
+
+    /**
+     * 获取部门用户列表（支持分页）
+     * @param deptId 部门ID
+     * @param cursor 分页游标，第一页传0
+     * @param size 每页大小，最大100
+     * @return 用户列表JSON对象
+     */
+    public JSONObject getDepartmentUsers(Long deptId, Long cursor, Integer size) {
+        String token = stringRedisTemplate.opsForValue().get(REDIS_KEY);
+        if (null == token) {
+            token = this.getToken();
+        }
+        String url = "https://oapi.dingtalk.com/topapi/v2/user/list?access_token=" + token;
+        JSONObject jsonObject = new JSONObject();
+        jsonObject.set("dept_id", deptId);
+        jsonObject.set("cursor", cursor != null ? cursor : 0L);
+        jsonObject.set("size", size != null ? size : 100);
+        HttpResponseContent content;
+        try {
+            content = httpClientService.doPost(url, null, JSONUtil.toJsonStr(jsonObject),
+                    HttpUtils.initHttpClientContext(null, new HttpTimeoutConfig(300000)));
+        } catch (Exception e) {
+            System.out.println("获取部门用户列表失败: " + e.getMessage());
+            return null;
+        }
+        System.out.println(content);
+        JSONObject contentJson = JSONUtil.parseObj(content.getContent());
+        if (200 != content.getStatusCode() || 0 != contentJson.getInt("errcode")) {
+            System.out.println("获取部门用户列表失败: " + contentJson.getStr("errmsg"));
+            return null;
+        }
+        return contentJson.getJSONObject("result");
+    }
+
+    /**
+     * 获取部门下所有用户（自动分页）
+     * @param deptId 部门ID
+     * @return 所有用户列表
+     */
+
+
+    /**
+     * 创建钉钉待办任务（通用方法）
+     * @param subject 任务主题
+     * @param initiatorId 发起人id
+     * @param executorUnionIds 执行人unionId列表
+     * @param participantUnionIds 参与人unionId列表（可选）
+     * @param appUrl App端详情链接
+     * @param pcUrl PC端详情链接
+     * @param priority 优先级：10(较低)、20(普通)、30(紧急)、40(非常紧急)
+     * @param dueTime 截止时间戳（毫秒，可选）
+     * @return 任务ID，创建失败返回null
+     */
+    public String createTodoTask(String initiatorId,String subject, List<String> executorUnionIds, List<String> participantUnionIds,
+                                  String appUrl, String pcUrl, Integer priority, Long dueTime) {
+        String token = stringRedisTemplate.opsForValue().get(REDIS_OAUTH2_KEY);
+        if (null == token) {
+            token = this.getOauth2Token();
+        }
+        if (null == token) {
+            System.out.println("获取OAuth2Token失败");
+            return null;
+        }
+
+        CreateTodoTaskHeaders createTodoTaskHeaders = new CreateTodoTaskHeaders();
+        createTodoTaskHeaders.xAcsDingtalkAccessToken = token;
+
+        CreateTodoTaskRequest.CreateTodoTaskRequestNotifyConfigs notifyConfigs = new CreateTodoTaskRequest.CreateTodoTaskRequestNotifyConfigs()
+                .setDingNotify("1");
+
+        CreateTodoTaskRequest.CreateTodoTaskRequestDetailUrl detailUrl = new CreateTodoTaskRequest.CreateTodoTaskRequestDetailUrl()
+                .setAppUrl(appUrl)
+                .setPcUrl(pcUrl);
+
+        CreateTodoTaskRequest createTodoTaskRequest = new CreateTodoTaskRequest()
+                .setOperatorId(initiatorId)
+                .setSubject(subject)
+                .setDescription("描述")
+                .setCreatorId(initiatorId)
+                .setExecutorIds(executorUnionIds)
+                .setDetailUrl(detailUrl)
+                .setIsOnlyShowExecutor(true)
+                .setPriority(priority != null ? priority : 20)
+                .setNotifyConfigs(notifyConfigs);
+
+        if (participantUnionIds != null && !participantUnionIds.isEmpty()) {
+            createTodoTaskRequest.setParticipantIds(participantUnionIds);
+        }
+
+        if (dueTime != null) {
+            createTodoTaskRequest.setDueTime(dueTime);
+        }
+
+        try {
+            Config config = new Config();
+            config.protocol = "https";
+            config.regionId = "central";
+            com.aliyun.dingtalktodo_1_0.Client client = new com.aliyun.dingtalktodo_1_0.Client(config);
+            CreateTodoTaskResponse res = client.createTodoTaskWithOptions(UNION_ID, createTodoTaskRequest, createTodoTaskHeaders, new RuntimeOptions());
+            System.out.println("创建待办任务成功: taskId=" + res.getBody().getId() + ", subject=" + subject);
+            return res.getBody().getId();
+
+        } catch (TeaException err) {
+            if (!com.aliyun.teautil.Common.empty(err.code) && !com.aliyun.teautil.Common.empty(err.message)) {
+                System.out.println("创建待办任务失败: " + err.code + " " + err.message);
+            }
+
+        } catch (Exception _err) {
+            TeaException err = new TeaException(_err.getMessage(), _err);
+            if (!com.aliyun.teautil.Common.empty(err.code) && !com.aliyun.teautil.Common.empty(err.message)) {
+                System.out.println("创建待办任务失败: " + err.code + " " + err.message);
+            }
+
+        }
+        return null;
+    }
+
+
 
 }

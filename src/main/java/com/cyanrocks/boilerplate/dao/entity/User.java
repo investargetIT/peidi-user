@@ -57,4 +57,14 @@ public class User {
     @Column(name = "oa_delete")
     @Comment("oa上删除")
     private Boolean oaDelete;
+
+    @Column(name = "job_num")
+    @Comment("工号不来自peidi系统(例:OBM000112)")
+    private String jobNum;
+
+    @Column(name = "is_send")
+    @Comment("是否发送创建绩效通知信息")
+    private Integer isSend;
+
+
 }

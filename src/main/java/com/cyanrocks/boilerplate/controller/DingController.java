@@ -7,6 +7,8 @@ import io.swagger.annotations.ApiOperation;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 /**
  * @Author wjq
  * @Date 2024/10/15 15:21
@@ -69,6 +71,20 @@ public class DingController {
     @ApiOperation(value = "删除待办任务")
     public void deleteTodoTask(@RequestParam(value="taskId") String taskId) {
         dingUtils.deleteTodoTask(taskId);
+    }
+
+    @GetMapping("/departmentUsers")
+    @ApiOperation(value = "获取部门用户列表（分页）")
+    public JSONObject getDepartmentUsers(@RequestParam(value="deptId") Long deptId,
+                                        @RequestParam(value="cursor", required = false) Long cursor,
+                                        @RequestParam(value="size", required = false) Integer size) {
+        return dingUtils.getDepartmentUsers(deptId, cursor, size);
+    }
+
+    @GetMapping("/allDepartmentUsers")
+    @ApiOperation(value = "获取部门所有用户（自动分页）")
+    public JSONObject getAllDepartmentUsers(@RequestParam(value="deptId") Long deptId) {
+        return dingUtils.getDepartmentUsers(deptId, null, null);
     }
 
 }

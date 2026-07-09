@@ -15,9 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 
 /**
  * @Author wjq
@@ -89,16 +87,16 @@ public class OaUtils {
      * 通过第一步中注册系统返回信息进行获取token信息
      */
     public Map<String,Object> getoken(String address){
-        // 从系统缓存或者数据库中获取ECOLOGY系统公钥和Secret信息
-//        String secret = SYSTEM_CACHE.get("SERVER_SECRET");
-//        String spk = SYSTEM_CACHE.get("SERVER_PUBLIC_KEY");
-        // 如果为空,说明还未进行注册,调用注册接口进行注册认证与数据更新
-//        if (Objects.isNull(secret)||Objects.isNull(spk)){
-//            regist(address);
-//            // 重新获取最新ECOLOGY系统公钥和Secret信息
-//            secret = SYSTEM_CACHE.get("SERVER_SECRET");
-//            spk = SYSTEM_CACHE.get("SERVER_PUBLIC_KEY");
-//        }
+//         从系统缓存或者数据库中获取ECOLOGY系统公钥和Secret信息
+        String secret = SYSTEM_CACHE.get("SERVER_SECRET");
+        String spk = SYSTEM_CACHE.get("SERVER_PUBLIC_KEY");
+//         如果为空,说明还未进行注册,调用注册接口进行注册认证与数据更新
+        if (Objects.isNull(secret)||Objects.isNull(spk)){
+            regist(address);
+            // 重新获取最新ECOLOGY系统公钥和Secret信息
+            secret = SYSTEM_CACHE.get("SERVER_SECRET");
+            spk = SYSTEM_CACHE.get("SERVER_PUBLIC_KEY");
+        }
 
         // 公钥加密,所以RSA对象私钥为null
         RSA rsa = new RSA(null,SPK);
@@ -170,6 +168,93 @@ public class OaUtils {
         return data;
     }
 
+    public List<UserOa> getOaUserInfo(Integer page) {
+            JSONObject jsonObject = new JSONObject();
+            JSONObject params = new JSONObject();
+            List<UserOa> userOas= new ArrayList<>();
+            params.set("pagesize",100);
+            params.set("curpage",page);
+            jsonObject.set("params",params);
+            //调用ECOLOGY系统接口
+            String data = HttpRequest.post("https://oa.peidibrand.com:4433/api/hrm/resful/getHrmUserInfoWithPage")
+                    .header("appid",APPID)
+                    .header("token",SYSTEM_CACHE.get("SERVER_TOKEN"))
+                    .header("userid","ZTyPa3GTGqfOQnrdt1Ci0kcjTh+J6g+5oFmWEP/E8BKO2ZyYIWqBSBMfEqHzCoHdkri4jmg/7K+N2TMgkQwlX/Itj6lHYfwH+uvGTF5tZg/BZfRgAZXLNPDw+kYDcjINy5GyGLDWGLZn4XAk7hGQvR9ZWDv/2eIKABK5ZP3UpljWYy+T8j19TsNbVBMuVW1Mq0s3HFhKp/NZkAMBxmYHSXuuC/hQIy5Mml2UJGmz3t54spgyUPgAkoxpP9KdWK52HJ3KqLEbmnHHzZ7Fm1UZFIeXWYeledRsSJs50LjzhQxe1F0KJNoDi5aannb/5mGiwSIH1pJDBAtQGmrmgNXkDA==")
+                    .body(JSONUtil.toJsonStr(jsonObject))
+                    .execute().body();
+            JSONArray dataList = JSONUtil.parseObj(data).getJSONObject("data").getJSONArray("dataList");
+            if (CollectionUtil.isNotEmpty(dataList)){
+                for (int i=0;i<dataList.size();i++){
+                    JSONObject object = dataList.getJSONObject(i);
+                    String status = object.getStr("status");
+                    //todo 只有status=4.解聘 5.离职 6.退休 7.无效 才处理
+                    if (!Arrays.asList("4", "5", "6", "7").contains(status)) continue;
+                    UserOa userOa = new UserOa();
+                    if (object.getStr("lastname").equals("王琳")) {
+                        System.out.println();
+                    }
+                    userOa.setCompanystartdate(object.getStr("companystartdate"));
+                    userOa.setTempresidentnumber(object.getStr("tempresidentnumber"));
+                    userOa.setCreatedate(object.getStr("createdate"));
+                    userOa.setLanguage(object.getStr("language"));
+                    userOa.setWorkstartdate(object.getStr("workstartdate"));
+                    userOa.setSubcompanyid1(object.getStr("subcompanyid1"));
+                    userOa.setSubcompanyname(object.getStr("subcompanyname"));
+                    userOa.setJoblevel(object.getStr("joblevel"));
+                    userOa.setStartdate(object.getStr("startdate"));
+                    userOa.setPassword(object.getStr("password"));
+                    userOa.setSubcompanycode(object.getStr("subcompanycode"));
+                    userOa.setJobactivitydesc(object.getStr("jobactivitydesc"));
+                    userOa.setBememberdate(object.getStr("bememberdate"));
+                    userOa.setModified(object.getStr("modified"));
+                    userOa.setOaId(object.getStr("id"));
+                    userOa.setMobilecall(object.getStr("mobilecall"));
+                    userOa.setNativeplace(object.getStr("nativeplace"));
+                    userOa.setCertificatenum(object.getStr("certificatenum"));
+                    userOa.setHeight(object.getStr("height"));
+                    userOa.setLoginid(object.getStr("loginid"));
+                    userOa.setCreated(object.getStr("created"));
+                    userOa.setDegree(object.getStr("degree"));
+                    userOa.setBepartydate(object.getStr("bepartydate"));
+                    userOa.setWeight(object.getStr("weight"));
+                    userOa.setTelephone(object.getStr("telephone"));
+                    userOa.setResidentplace(object.getStr("residentplace"));
+                    userOa.setLastname(object.getStr("lastname"));
+                    userOa.setHealthinfo(object.getStr("healthinfo"));
+                    userOa.setEnddate(object.getStr("enddate"));
+                    userOa.setMaritalstatus(object.getStr("maritalstatus"));
+                    userOa.setDepartmentname(object.getStr("departmentname"));
+                    userOa.setFolk(object.getStr("folk"));
+                    userOa.setStatus(status);
+                    userOa.setBirthday(object.getStr("birthday"));
+                    userOa.setAccounttype(object.getStr("accounttype"));
+                    userOa.setJobcall(object.getStr("jobcall"));
+                    userOa.setManagerid(object.getStr("managerid"));
+                    userOa.setAssistantid(object.getStr("assistantid"));
+                    userOa.setDepartmentcode(object.getStr("departmentcode"));
+                    userOa.setBelongto(object.getStr("belongto"));
+                    userOa.setEmail(object.getStr("email"));
+                    userOa.setSeclevel(object.getStr("seclevel"));
+                    userOa.setPolicy(object.getStr("policy"));
+                    userOa.setJobtitle(object.getStr("jobtitle"));
+                    userOa.setWorkcode(object.getStr("workcode"));
+                    userOa.setSex(object.getStr("sex"));
+                    userOa.setDepartmentid(object.getStr("departmentid"));
+                    userOa.setHomeaddress(object.getStr("homeaddress"));
+                    userOa.setMobile(object.getStr("mobile"));
+                    userOa.setLastmoddate(object.getStr("lastmoddate"));
+                    userOa.setEducationlevel(object.getStr("educationlevel"));
+                    userOa.setIslabouunion(object.getStr("islabouunion"));
+                    userOa.setLocationid(object.getStr("locationid"));
+                    userOa.setRegresidentplace(object.getStr("regresidentplace"));
+                    userOa.setDsporder(object.getStr("dsporder"));
+                    userOas.add(userOa);
+                }
+
+        }
+        return userOas;
+    }
+
     public void restfulTest(Integer page){
         for (int curpage = 1;curpage <=page ;curpage++){
             JSONObject jsonObject = new JSONObject();
@@ -181,7 +266,7 @@ public class OaUtils {
             //调用ECOLOGY系统接口
             String data = HttpRequest.post("https://oa.peidibrand.com:4433/api/hrm/resful/getHrmUserInfoWithPage")
                     .header("appid",APPID)
-                    .header("token","ccd51033-490e-4af1-8a52-73bedcae849a")
+                    .header("token","6faed885-fc46-4e45-94bd-ee40a3d83922")
                     .header("userid","ZTyPa3GTGqfOQnrdt1Ci0kcjTh+J6g+5oFmWEP/E8BKO2ZyYIWqBSBMfEqHzCoHdkri4jmg/7K+N2TMgkQwlX/Itj6lHYfwH+uvGTF5tZg/BZfRgAZXLNPDw+kYDcjINy5GyGLDWGLZn4XAk7hGQvR9ZWDv/2eIKABK5ZP3UpljWYy+T8j19TsNbVBMuVW1Mq0s3HFhKp/NZkAMBxmYHSXuuC/hQIy5Mml2UJGmz3t54spgyUPgAkoxpP9KdWK52HJ3KqLEbmnHHzZ7Fm1UZFIeXWYeledRsSJs50LjzhQxe1F0KJNoDi5aannb/5mGiwSIH1pJDBAtQGmrmgNXkDA==")
                     .body(JSONUtil.toJsonStr(jsonObject))
                     .execute().body();
@@ -253,4 +338,5 @@ public class OaUtils {
 
 
     }
+
 }
