@@ -37,6 +37,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * @Author wjq
@@ -76,14 +77,14 @@ public class UserAuthController {
 //                    .toLocalDate();
 //            req.setHireDate(utcDate);
 //        }
-        UserInfo userInfoRes = userInfoMapper.selectOne(Wrappers.<UserInfo>lambdaQuery().eq(UserInfo::getUserId,req.getUserId()));
-        if (null == userInfoRes){
+        UserInfo userInfoRes = userInfoMapper.selectOne(Wrappers.<UserInfo>lambdaQuery().eq(UserInfo::getUserId, req.getUserId()));
+        if (null == userInfoRes) {
             req.setCreatedAt(LocalDateTime.now());
             req.setHireDate(LocalDate.now());
             userInfoMapper.insert(req);
-        }else {
+        } else {
             req.setUpdatedAt(LocalDateTime.now());
-            userInfoMapper.update(req, Wrappers.<UserInfo>lambdaQuery().eq(UserInfo::getUserId,req.getUserId()));
+            userInfoMapper.update(req, Wrappers.<UserInfo>lambdaQuery().eq(UserInfo::getUserId, req.getUserId()));
         }
     }
 
@@ -119,10 +120,10 @@ public class UserAuthController {
     @PostMapping("/sms-update-password")
     @ApiOperation(value = "手机:利用旧密码更新密码")
     public void updatePasswordBySns(@Valid @RequestBody UpdatePasswordRequest updatePasswordCommand,
-                                      HttpServletRequest request, HttpServletResponse response) throws IOException {
+                                    HttpServletRequest request, HttpServletResponse response) throws IOException {
         userFacade.updatePasswordBySms(updatePasswordCommand);
         // // 更新密码后清除登陆状态
-        Cookie cookie = new Cookie("JSESSIONID", (String)null);
+        Cookie cookie = new Cookie("JSESSIONID", (String) null);
         String cookiePath = request.getContextPath() + "/";
         cookie.setPath(cookiePath);
         cookie.setMaxAge(0);
@@ -137,7 +138,7 @@ public class UserAuthController {
                                     HttpServletRequest request, HttpServletResponse response) throws IOException {
         userFacade.updatePasswordByOld(updatePasswordCommand);
         // // 更新密码后清除登陆状态
-        Cookie cookie = new Cookie("JSESSIONID", (String)null);
+        Cookie cookie = new Cookie("JSESSIONID", (String) null);
         String cookiePath = request.getContextPath() + "/";
         cookie.setPath(cookiePath);
         cookie.setMaxAge(0);
@@ -172,15 +173,15 @@ public class UserAuthController {
     @ApiOperation(value = "判断用户是否登陆")
     public UserCheckVO checkUser(@RequestParam String token, HttpServletRequest request, HttpServletResponse response) {
         UserToken userToken = userTokenMapper.selectById(token);
-        if (null == userToken){
+        if (null == userToken) {
             throw new BusinessException(ErrorCodeEnum.SESSION_INVALID.getCode(), "token 无效");
         }
-        if (LocalDateTime.now().isAfter(userToken.getExpireTime())){
+        if (LocalDateTime.now().isAfter(userToken.getExpireTime())) {
             //token过期
             userTokenMapper.deleteById(token);
             UserCheckVO vo = new UserCheckVO();
             vo.setHasLoginUser(false);
-            Cookie cookie = new Cookie("JSESSIONID", (String)null);
+            Cookie cookie = new Cookie("JSESSIONID", (String) null);
             String cookiePath = request.getContextPath() + "/";
             cookie.setPath(cookiePath);
             cookie.setMaxAge(0);
@@ -193,7 +194,7 @@ public class UserAuthController {
         vo.setService(userToken.getService());
         vo.setUsername(userToken.getUsername());
         vo.setId(userToken.getUserId());
-        if (null != userToken.getUserId()){
+        if (null != userToken.getUserId()) {
             System.out.println(userToken.getUserId());
             User user = userMapper.selectById(userToken.getUserId());
             vo.setDataSource(user.getDataSource());
@@ -219,7 +220,7 @@ public class UserAuthController {
     @GetMapping("/check-code")
     @ApiOperation(value = "校验验证码")
     public void checkCode(@RequestParam("mobile") String mobile, @RequestParam("mobileCode") String mobileCode) {
-        validateCodeService.checkCodeEffective(mobile, mobileCode,ValidateCodeTypeEnum.SMS_OMS_ORDER_TRADE);
+        validateCodeService.checkCodeEffective(mobile, mobileCode, ValidateCodeTypeEnum.SMS_OMS_ORDER_TRADE);
     }
 
 
@@ -232,4 +233,31 @@ public class UserAuthController {
                                            @RequestParam("password") String password) {
         // 不实现任何内容，只是为了出api文档
     }
+
+
+    @GetMapping(value = "/user/list")
+    @ApiOperation(value = "获取所有没有在oA上删除的用户名称和id")
+    public List<User> userList(@RequestParam("name") String name) {
+        List<User> userList = userMapper.selectList(Wrappers.<User>lambdaQuery().isNotNull(User::getDingId).eq(User::getOaDelete, 0).likeRight(User::getUsername, name).select(User::getId, User::getUsername, User::getJobNum));
+        return userList;
+    }
+
+    @PostMapping(value = "/user/update")
+    @ApiOperation(value = "通过UserId修改工号")
+    public void updateUserJobNum(@RequestBody User user) {
+        if (user.getId() != null && user.getJobNum() != null) {
+            userMapper.update(null, Wrappers.<User>lambdaUpdate()
+                    .set(User::getJobNum, user.getJobNum())
+                    .eq(User::getId, user.getId()));
+        }
+    }
+
+
+    @GetMapping(value = "/user/getDingdingId")
+    @ApiOperation(value = "获取dingdingId通过名称")
+    public String getDingdingId(@RequestParam("name") String name) {
+        User user = userMapper.selectOne(Wrappers.<User>lambdaQuery().eq(User::getUsername, name));
+        return user != null ? user.getDingId() : null;
+    }
+
 }
