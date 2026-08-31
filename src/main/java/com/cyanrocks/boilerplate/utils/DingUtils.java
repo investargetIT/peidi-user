@@ -380,11 +380,210 @@ public class DingUtils {
         }
     }
 
+    /**
+     * 分页获取考勤组下参与考勤人员的userId（单页）
+     * 接口：/topapi/attendance/group/memberusers/list
+     * @param groupId 考勤组ID
+     * @param cursor 分页游标，第一页传0
+     * @return result对象（含 result:userId数组、cursor、has_more），调用失败返回null
+     */
+    public JSONObject getAttendanceGroupUsers(Long groupId, Long cursor) {
+        String token = stringRedisTemplate.opsForValue().get(REDIS_KEY);
+        if (null == token) {
+            token = this.getToken();
+        }
+        String url = "https://oapi.dingtalk.com/topapi/attendance/group/memberusers/list?access_token=" + token;
+        JSONObject jsonObject = new JSONObject();
+        jsonObject.set("cursor", cursor != null ? cursor : 0L);
+        jsonObject.set("op_user_id", "dd_dd");
+        jsonObject.set("group_id", groupId);
+        HttpResponseContent content;
+        try {
+            content = httpClientService.doPost(url, null, JSONUtil.toJsonStr(jsonObject),
+                    HttpUtils.initHttpClientContext(null, new HttpTimeoutConfig(300000)));
+        } catch (Exception e) {
+            System.out.println("获取考勤组人员列表网络异常: " + e.getMessage());
+            return null;
+        }
+        System.out.println(content);
+        JSONObject contentJson = JSONUtil.parseObj(content.getContent());
+
+        // Token过期，尝试刷新后重试一次
+        int errcode = contentJson.getInt("errcode");
+        if (200 != content.getStatusCode() || errcode == 40014 || errcode == 42001) {
+            System.out.println("Token已过期，尝试刷新Token重试");
+            stringRedisTemplate.delete(REDIS_KEY);
+            token = this.getToken();
+            url = "https://oapi.dingtalk.com/topapi/attendance/group/memberusers/list?access_token=" + token;
+            try {
+                content = httpClientService.doPost(url, null, JSONUtil.toJsonStr(jsonObject),
+                        HttpUtils.initHttpClientContext(null, new HttpTimeoutConfig(300000)));
+            } catch (Exception e) {
+                System.out.println("重试获取考勤组人员列表网络异常: " + e.getMessage());
+                return null;
+            }
+            contentJson = JSONUtil.parseObj(content.getContent());
+            errcode = contentJson.getInt("errcode");
+        }
+
+        if (200 != content.getStatusCode() || 0 != errcode) {
+            System.out.println("获取考勤组人员列表失败: errcode=" + errcode + ", errmsg=" + contentJson.getStr("errmsg"));
+            return null;
+        }
+        return contentJson.getJSONObject("result");
+    }
+
+    /**
+     * 获取考勤组下所有参与考勤人员的userId（自动分页）
+     * @param groupId 考勤组ID
+     * @return 全部userId列表，调用失败返回null
+     */
+    public List<String> getAllAttendanceGroupUsers(Long groupId) {
+        List<String> allUserIds = new ArrayList<>();
+        Long cursor = 0L;
+        // 防御性上限，正常一页即可取完
+        for (int page = 0; page < 100; page++) {
+            JSONObject result = getAttendanceGroupUsers(groupId, cursor);
+            if (null == result) {
+                return null;
+            }
+            List<String> userIds = result.getJSONArray("result").toList(String.class);
+            allUserIds.addAll(userIds);
+            if (!result.getBool("has_more", false)) {
+                break;
+            }
+            cursor = result.getLong("cursor");
+        }
+        return allUserIds;
+    }
+
+    /**
+     * 获取打卡结果（单页）
+     * 接口：/attendance/list
+     * @param workDateFrom 起始工作日，格式yyyy-MM-dd HH:mm:ss（与workDateTo相隔最多7天）
+     * @param workDateTo 结束工作日，格式yyyy-MM-dd HH:mm:ss
+     * @param userIdList 员工userId列表，最大50
+     * @param offset 起始点，第一次传0
+     * @param limit 条数，最大50
+     * @return 完整响应体JSONObject（含recordresult数组、hasMore），调用失败返回null
+     */
+    public JSONObject getAttendanceRecords(String workDateFrom, String workDateTo, List<String> userIdList, Long offset, Long limit) {
+        String token = stringRedisTemplate.opsForValue().get(REDIS_KEY);
+        if (null == token) {
+            token = this.getToken();
+        }
+        String url = "https://oapi.dingtalk.com/attendance/list?access_token=" + token;
+        JSONObject jsonObject = new JSONObject();
+        jsonObject.set("workDateFrom", workDateFrom);
+        jsonObject.set("workDateTo", workDateTo);
+        jsonObject.set("userIdList", userIdList);
+        jsonObject.set("offset", offset);
+        jsonObject.set("limit", limit);
+        jsonObject.set("isI18n", false);
+        HttpResponseContent content;
+        try {
+            content = httpClientService.doPost(url, null, JSONUtil.toJsonStr(jsonObject),
+                    HttpUtils.initHttpClientContext(null, new HttpTimeoutConfig(300000)));
+        } catch (Exception e) {
+            System.out.println("获取打卡结果网络异常: " + e.getMessage());
+            return null;
+        }
+        System.out.println(content);
+        JSONObject contentJson = JSONUtil.parseObj(content.getContent());
+
+        // Token过期，尝试刷新后重试一次
+        int errcode = contentJson.getInt("errcode");
+        if (200 != content.getStatusCode() || errcode == 40014 || errcode == 42001) {
+            System.out.println("Token已过期，尝试刷新Token重试");
+            stringRedisTemplate.delete(REDIS_KEY);
+            token = this.getToken();
+            url = "https://oapi.dingtalk.com/attendance/list?access_token=" + token;
+            try {
+                content = httpClientService.doPost(url, null, JSONUtil.toJsonStr(jsonObject),
+                        HttpUtils.initHttpClientContext(null, new HttpTimeoutConfig(300000)));
+            } catch (Exception e) {
+                System.out.println("重试获取打卡结果网络异常: " + e.getMessage());
+                return null;
+            }
+            contentJson = JSONUtil.parseObj(content.getContent());
+            errcode = contentJson.getInt("errcode");
+        }
+
+        if (200 != content.getStatusCode() || 0 != errcode) {
+            System.out.println("获取打卡结果失败: errcode=" + errcode + ", errmsg=" + contentJson.getStr("errmsg"));
+            return null;
+        }
+        return contentJson;
+    }
+
+    /**
+     * 获取请假状态（单页）
+     * 接口：/topapi/attendance/getleavestatus
+     * 工时看板 支线逻辑3（工时看板文档20260824.md 第9章）
+     * @param userIdList 员工userId列表，逗号分隔，每次最多100个
+     * @param startTimeMilli 查询开始时间（毫秒时间戳），与endTimeMilli相隔最多180天
+     * @param endTimeMilli 查询结束时间（毫秒时间戳）
+     * @param offset 起始点，第一次传0
+     * @param size 单页条数，最大20
+     * @return 完整响应体JSONObject（含result.leave_status数组、result.has_more），调用失败返回null
+     */
+    public JSONObject getLeaveStatus(String userIdList, Long startTimeMilli, Long endTimeMilli, Long offset, Long size) {
+        String token = stringRedisTemplate.opsForValue().get(REDIS_KEY);
+        if (null == token) {
+            token = this.getToken();
+        }
+        String url = "https://oapi.dingtalk.com/topapi/attendance/getleavestatus?access_token=" + token;
+        JSONObject jsonObject = new JSONObject();
+        jsonObject.set("userid_list", userIdList);
+        jsonObject.set("start_time", startTimeMilli);
+        jsonObject.set("end_time", endTimeMilli);
+        jsonObject.set("offset", offset);
+        jsonObject.set("size", size);
+        HttpResponseContent content;
+        try {
+            content = httpClientService.doPost(url, null, JSONUtil.toJsonStr(jsonObject),
+                    HttpUtils.initHttpClientContext(null, new HttpTimeoutConfig(300000)));
+        } catch (Exception e) {
+            System.out.println("获取请假状态网络异常: " + e.getMessage());
+            return null;
+        }
+        System.out.println(content);
+        JSONObject contentJson = JSONUtil.parseObj(content.getContent());
+
+        // Token过期，尝试刷新后重试一次
+        int errcode = contentJson.getInt("errcode");
+        if (200 != content.getStatusCode() || errcode == 40014 || errcode == 42001) {
+            System.out.println("Token已过期，尝试刷新Token重试");
+            stringRedisTemplate.delete(REDIS_KEY);
+            token = this.getToken();
+            url = "https://oapi.dingtalk.com/topapi/attendance/getleavestatus?access_token=" + token;
+            try {
+                content = httpClientService.doPost(url, null, JSONUtil.toJsonStr(jsonObject),
+                        HttpUtils.initHttpClientContext(null, new HttpTimeoutConfig(300000)));
+            } catch (Exception e) {
+                System.out.println("重试获取请假状态网络异常: " + e.getMessage());
+                return null;
+            }
+            contentJson = JSONUtil.parseObj(content.getContent());
+            errcode = contentJson.getInt("errcode");
+        }
+
+        if (200 != content.getStatusCode() || 0 != errcode) {
+            System.out.println("获取请假状态失败: errcode=" + errcode + ", errmsg=" + contentJson.getStr("errmsg"));
+            return null;
+        }
+        return contentJson;
+    }
+
     public String creatTodoTask(String userId){
         User user = userMapper.selectById(userId);
         JSONObject userInfo = getUserinfoByUserid(user.getDingId());
         String unionId = userInfo.getStr("unionid");
-        String token = stringRedisTemplate.opsForValue().get(REDIS_OAUTH2_KEY);
+
+        String token = null;
+        if (Boolean.TRUE.equals(stringRedisTemplate.hasKey(REDIS_OAUTH2_KEY))) {
+            token = stringRedisTemplate.opsForValue().get(REDIS_OAUTH2_KEY);
+        }
         if (null == token) {
             token = this.getOauth2Token();
         }
@@ -585,6 +784,302 @@ public class DingUtils {
         return null;
     }
 
+    // ==================== 加班审批（工时看板 支线逻辑1）====================
 
+    /**
+     * 获取审批实例ID列表（新版API + OAuth2 token，自动nextToken翻页）
+     * @param startTimeMilli 开始时间毫秒时间戳（按审批发起时间过滤）
+     * @param endTimeMilli 结束时间毫秒时间戳（按审批发起时间过滤）
+     * @param processCode 审批模板code
+     * @return 审批实例ID列表（仅COMPLETED状态），调用失败返回null
+     */
+    public List<String> getProcessInstanceIds(Long startTimeMilli, Long endTimeMilli, String processCode) {
+        try {
+            com.aliyun.teaopenapi.models.Config config = new com.aliyun.teaopenapi.models.Config();
+            config.protocol = "https";
+            config.regionId = "central";
+            com.aliyun.dingtalkworkflow_1_0.Client client = new com.aliyun.dingtalkworkflow_1_0.Client(config);
+            List<String> allIds = new ArrayList<>();
+            Long nextToken = 0L;
+            // 防御性上限，防止死循环
+            for (int page = 0; page < 100; page++) {
+                com.aliyun.dingtalkworkflow_1_0.models.ListProcessInstanceIdsHeaders headers =
+                        new com.aliyun.dingtalkworkflow_1_0.models.ListProcessInstanceIdsHeaders();
+                headers.xAcsDingtalkAccessToken = getValidOauth2Token();
+                com.aliyun.dingtalkworkflow_1_0.models.ListProcessInstanceIdsRequest request =
+                        new com.aliyun.dingtalkworkflow_1_0.models.ListProcessInstanceIdsRequest()
+                                .setStatuses(java.util.Arrays.asList("COMPLETED"))
+                                .setStartTime(startTimeMilli)
+                                .setEndTime(endTimeMilli)
+                                .setProcessCode(processCode)
+                                .setNextToken(nextToken)
+                                .setMaxResults(20L);
+                com.aliyun.dingtalkworkflow_1_0.models.ListProcessInstanceIdsResponseBody body =
+                        client.listProcessInstanceIdsWithOptions(request, headers, new RuntimeOptions()).getBody();
+                if (null == body || null == body.getResult()) {
+                    break;
+                }
+                List<String> list = body.getResult().getList();
+                if (CollectionUtil.isEmpty(list)) {
+                    break;
+                }
+                allIds.addAll(list);
+                // 无nextToken表示翻页结束
+                String next = body.getResult().getNextToken();
+                if (com.aliyun.teautil.Common.empty(next)) {
+                    break;
+                }
+                try {
+                    nextToken = Long.parseLong(next);
+                } catch (NumberFormatException e) {
+                    break;
+                }
+            }
+            return allIds;
+        } catch (Exception e) {
+            System.out.println("获取审批实例ID列表异常: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * 获取单个审批实例详情（新版API + OAuth2 token）
+     * @param processInstanceId 审批实例ID
+     * @return 审批实例详情JSON（含formComponentValues数组），调用失败返回null
+     */
+    public JSONObject getProcessInstanceDetail(String processInstanceId) {
+        try {
+            com.aliyun.teaopenapi.models.Config config = new com.aliyun.teaopenapi.models.Config();
+            config.protocol = "https";
+            config.regionId = "central";
+            com.aliyun.dingtalkworkflow_1_0.Client client = new com.aliyun.dingtalkworkflow_1_0.Client(config);
+            com.aliyun.dingtalkworkflow_1_0.models.GetProcessInstanceHeaders headers =
+                    new com.aliyun.dingtalkworkflow_1_0.models.GetProcessInstanceHeaders();
+            headers.xAcsDingtalkAccessToken = getValidOauth2Token();
+            com.aliyun.dingtalkworkflow_1_0.models.GetProcessInstanceRequest request =
+                    new com.aliyun.dingtalkworkflow_1_0.models.GetProcessInstanceRequest()
+                            .setProcessInstanceId(processInstanceId);
+            com.aliyun.dingtalkworkflow_1_0.models.GetProcessInstanceResponseBody body =
+                    client.getProcessInstanceWithOptions(request, headers, new RuntimeOptions()).getBody();
+            if (null == body || null == body.getResult()) {
+                return null;
+            }
+            // 转成hutool JSONObject便于调用方解析
+            return JSONUtil.parseObj(JSONUtil.toJsonStr(body.getResult()));
+        } catch (Exception e) {
+            System.out.println("获取审批实例详情异常: processInstanceId=" + processInstanceId + ", " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * 获取OAuth2 token（优先取Redis缓存，与todo任务同一token）
+     */
+    private String getValidOauth2Token() {
+        String token = stringRedisTemplate.opsForValue().get(REDIS_OAUTH2_KEY);
+        if (null == token) {
+            token = this.getOauth2Token();
+        }
+        return token;
+    }
+
+    // ==================== 部门架构（工时看板 支线逻辑2）====================
+
+    /** 钉钉QPS限流错误码（subcode=90002，所有应用共享约1200次/秒上限） */
+    private static final int ERR_QPS_LIMIT = 88;
+    /** 部门相关接口调用最小间隔（毫秒），将本应用QPS压到20以下，避免触发钉钉限流 */
+    private static final long DEPT_API_INTERVAL_MS = 50;
+    /** 部门相关接口QPS限流重试次数 */
+    private static final int DEPT_API_MAX_RETRY = 4;
+
+    /** QPS限流异常（可重试） */
+    private static class DingQpsLimitException extends RuntimeException {
+        DingQpsLimitException(String message) {
+            super(message);
+        }
+    }
+
+    /**
+     * 部门相关接口全局限流：保证相邻两次调用间隔不小于 {@link #DEPT_API_INTERVAL_MS}
+     */
+    private static volatile long lastDeptApiTime = 0L;
+
+    private static void throttleDeptApi() {
+        long now = System.currentTimeMillis();
+        long earliest = lastDeptApiTime + DEPT_API_INTERVAL_MS;
+        if (now < earliest) {
+            try {
+                Thread.sleep(earliest - now);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+        lastDeptApiTime = System.currentTimeMillis();
+    }
+
+    /**
+     * 获取指定部门的直属子部门列表（不含子部门的子部门，需递归调用）
+     * 接口：/topapi/v2/department/listsub
+     * 内置限流（间隔{@value #DEPT_API_INTERVAL_MS}ms）与QPS限流重试（errcode=88）
+     * @param parentDeptId 父部门ID，根部门传1
+     * @return 子部门列表（每项含dept_id/name/parent_id），调用失败返回null，无子部门返回空列表
+     */
+    public List<JSONObject> getSubDepartments(Long parentDeptId) {
+        for (int attempt = 1; attempt <= DEPT_API_MAX_RETRY; attempt++) {
+            try {
+                return doGetSubDepartments(parentDeptId);
+            } catch (DingQpsLimitException e) {
+                if (attempt == DEPT_API_MAX_RETRY) {
+                    System.out.println("获取子部门列表失败(重试" + (attempt - 1) + "次后仍被限流): " + e.getMessage());
+                    return null;
+                }
+                long backoff = attempt * 1000L;
+                System.out.println("获取子部门列表触发钉钉QPS限流, " + backoff + "ms后重试(" + attempt + "/"
+                        + (DEPT_API_MAX_RETRY - 1) + "): " + e.getMessage());
+                try {
+                    Thread.sleep(backoff);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    return null;
+                }
+            }
+        }
+        return null;
+    }
+
+    private List<JSONObject> doGetSubDepartments(Long parentDeptId) {
+        throttleDeptApi();
+        String token = stringRedisTemplate.opsForValue().get(REDIS_KEY);
+        if (null == token) {
+            token = this.getToken();
+        }
+        String url = "https://oapi.dingtalk.com/topapi/v2/department/listsub?access_token=" + token;
+        JSONObject jsonObject = new JSONObject();
+        jsonObject.set("dept_id", parentDeptId);
+        jsonObject.set("language", "zh_CN");
+        HttpResponseContent content;
+        try {
+            content = httpClientService.doPost(url, null, JSONUtil.toJsonStr(jsonObject),
+                    HttpUtils.initHttpClientContext(null, new HttpTimeoutConfig(300000)));
+        } catch (Exception e) {
+            System.out.println("获取子部门列表网络异常: " + e.getMessage());
+            return null;
+        }
+        JSONObject contentJson = JSONUtil.parseObj(content.getContent());
+
+        // Token过期，尝试刷新后重试一次
+        int errcode = contentJson.getInt("errcode");
+        if (200 != content.getStatusCode() || errcode == 40014 || errcode == 42001) {
+            stringRedisTemplate.delete(REDIS_KEY);
+            token = this.getToken();
+            url = "https://oapi.dingtalk.com/topapi/v2/department/listsub?access_token=" + token;
+            try {
+                content = httpClientService.doPost(url, null, JSONUtil.toJsonStr(jsonObject),
+                        HttpUtils.initHttpClientContext(null, new HttpTimeoutConfig(300000)));
+            } catch (Exception e) {
+                System.out.println("重试获取子部门列表网络异常: " + e.getMessage());
+                return null;
+            }
+            contentJson = JSONUtil.parseObj(content.getContent());
+            errcode = contentJson.getInt("errcode");
+        }
+
+        if (200 != content.getStatusCode() || 0 != errcode) {
+            if (errcode == ERR_QPS_LIMIT) {
+                throw new DingQpsLimitException("errcode=88, errmsg=" + contentJson.getStr("errmsg"));
+            }
+            System.out.println("获取子部门列表失败: errcode=" + errcode + ", errmsg=" + contentJson.getStr("errmsg"));
+            return null;
+        }
+        cn.hutool.json.JSONArray result = contentJson.getJSONArray("result");
+        if (null == result) {
+            return new ArrayList<>();
+        }
+        List<JSONObject> departments = new ArrayList<>();
+        for (Object obj : result) {
+            departments.add((JSONObject) obj);
+        }
+        return departments;
+    }
+
+    /**
+     * 获取部门下的直属员工userid列表（不含子部门员工，需用子部门ID再查）
+     * 接口：/topapi/user/listid
+     * 内置限流（间隔{@value #DEPT_API_INTERVAL_MS}ms）与QPS限流重试（errcode=88）
+     * @param deptId 部门ID
+     * @return 该部门直属员工的userid列表，调用失败返回null
+     */
+    public List<String> getDeptUserIds(Long deptId) {
+        for (int attempt = 1; attempt <= DEPT_API_MAX_RETRY; attempt++) {
+            try {
+                return doGetDeptUserIds(deptId);
+            } catch (DingQpsLimitException e) {
+                if (attempt == DEPT_API_MAX_RETRY) {
+                    System.out.println("获取部门员工列表失败(重试" + (attempt - 1) + "次后仍被限流): " + e.getMessage());
+                    return null;
+                }
+                long backoff = attempt * 1000L;
+                System.out.println("获取部门员工列表触发钉钉QPS限流, " + backoff + "ms后重试(" + attempt + "/"
+                        + (DEPT_API_MAX_RETRY - 1) + "): " + e.getMessage());
+                try {
+                    Thread.sleep(backoff);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    return null;
+                }
+            }
+        }
+        return null;
+    }
+
+    private List<String> doGetDeptUserIds(Long deptId) {
+        throttleDeptApi();
+        String token = stringRedisTemplate.opsForValue().get(REDIS_KEY);
+        if (null == token) {
+            token = this.getToken();
+        }
+        String url = "https://oapi.dingtalk.com/topapi/user/listid?access_token=" + token;
+        JSONObject jsonObject = new JSONObject();
+        jsonObject.set("dept_id", deptId);
+        HttpResponseContent content;
+        try {
+            content = httpClientService.doPost(url, null, JSONUtil.toJsonStr(jsonObject),
+                    HttpUtils.initHttpClientContext(null, new HttpTimeoutConfig(300000)));
+        } catch (Exception e) {
+            System.out.println("获取部门员工列表网络异常: " + e.getMessage());
+            return null;
+        }
+        JSONObject contentJson = JSONUtil.parseObj(content.getContent());
+
+        // Token过期，尝试刷新后重试一次
+        int errcode = contentJson.getInt("errcode");
+        if (200 != content.getStatusCode() || errcode == 40014 || errcode == 42001) {
+            stringRedisTemplate.delete(REDIS_KEY);
+            token = this.getToken();
+            url = "https://oapi.dingtalk.com/topapi/user/listid?access_token=" + token;
+            try {
+                content = httpClientService.doPost(url, null, JSONUtil.toJsonStr(jsonObject),
+                        HttpUtils.initHttpClientContext(null, new HttpTimeoutConfig(300000)));
+            } catch (Exception e) {
+                System.out.println("重试获取部门员工列表网络异常: " + e.getMessage());
+                return null;
+            }
+            contentJson = JSONUtil.parseObj(content.getContent());
+            errcode = contentJson.getInt("errcode");
+        }
+
+        if (200 != content.getStatusCode() || 0 != errcode) {
+            if (errcode == ERR_QPS_LIMIT) {
+                throw new DingQpsLimitException("errcode=88, errmsg=" + contentJson.getStr("errmsg"));
+            }
+            System.out.println("获取部门员工列表失败: errcode=" + errcode + ", errmsg=" + contentJson.getStr("errmsg"));
+            return null;
+        }
+        JSONObject result = contentJson.getJSONObject("result");
+        if (null == result || null == result.getJSONArray("userid_list")) {
+            return new ArrayList<>();
+        }
+        return result.getJSONArray("userid_list").toList(String.class);
+    }
 
 }
