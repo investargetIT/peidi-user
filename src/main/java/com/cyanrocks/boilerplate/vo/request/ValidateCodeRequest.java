@@ -19,4 +19,8 @@ public class ValidateCodeRequest {
     @NotNull
     @ApiModelProperty(value = "验证码类型", required = true,dataType = "String")
     private String codeType;
+
+    private String phone;
+
+
 }

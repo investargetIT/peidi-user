@@ -5,9 +5,10 @@ import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.toolkit.StringUtils;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.cyanrocks.boilerplate.dao.entity.AttendanceUser;
 import com.cyanrocks.boilerplate.dao.entity.User;
-import com.cyanrocks.boilerplate.dao.entity.UserInfo;
 import com.cyanrocks.boilerplate.dao.entity.UserOa;
+import com.cyanrocks.boilerplate.dao.mapper.AttendanceUserMapper;
 import com.cyanrocks.boilerplate.dao.mapper.UserInfoMapper;
 import com.cyanrocks.boilerplate.dao.mapper.UserMapper;
 import com.cyanrocks.boilerplate.utils.DingUtils;
@@ -52,12 +53,25 @@ public class ScheduledTasks {
     private String PM_APP_URL;
     @Value("${oa.address}")
     private String oaUtilUrl;
+    /** 标准工时考勤组ID（工时看板） */
+    @Value("${attendance.group.id:209090469}")
+    private Long ATTENDANCE_GROUP_ID;
 
 
     @Autowired
     private UserMapper userMapper;
     @Autowired
     private UserInfoMapper userInfoMapper;
+    @Autowired
+    private AttendanceUserMapper attendanceUserMapper;
+    @Autowired
+    private com.cyanrocks.boilerplate.service.AttendanceRecordService attendanceRecordService;
+    @Autowired
+    private com.cyanrocks.boilerplate.service.AttendanceOvertimeService attendanceOvertimeService;
+    @Autowired
+    private com.cyanrocks.boilerplate.service.AttendanceDeptService attendanceDeptService;
+    @Autowired
+    private com.cyanrocks.boilerplate.service.AttendanceLeaveService attendanceLeaveService;
     @Autowired
     private DingUtils dingUtils;
     @Autowired
@@ -66,10 +80,184 @@ public class ScheduledTasks {
     private OaUtils oaUtils;
 
     /**
+     * 同步考勤组参与人员userId（每天早上9点30）
+     * 数据来源：钉钉标准工时考勤组，全量同步到 attendance_user 表
+     * 策略：新增的插入，考勤组中已移除的删除
+     */
+    @Scheduled(cron = "0 30 9 * * ?", zone = "Asia/Shanghai")
+    public void syncAttendanceUsers() {
+        LOG.info("考勤组人员同步开始: {}", new java.util.Date());
+        List<String> remoteUserIds = dingUtils.getAllAttendanceGroupUsers(ATTENDANCE_GROUP_ID);
+        if (CollectionUtil.isEmpty(remoteUserIds)) {
+            LOG.error("考勤组人员同步失败: 获取考勤组人员列表为空, groupId={}", ATTENDANCE_GROUP_ID);
+            return;
+        }
+        // 转成Set便于比对
+        java.util.Set<String> remoteSet = new java.util.HashSet<>(remoteUserIds);
+        // 查询库中已有数据
+        List<AttendanceUser> dbUsers = attendanceUserMapper.selectList(null);
+        java.util.Set<String> dbSet = new java.util.HashSet<>();
+        for (AttendanceUser dbUser : dbUsers) {
+            dbSet.add(dbUser.getDingUserId());
+        }
+        LocalDateTime now = LocalDateTime.now();
+        // 1. 新增：钉钉有、库里没有的
+        int insertCount = 0;
+        for (String dingUserId : remoteSet) {
+            if (!dbSet.contains(dingUserId)) {
+                AttendanceUser attendanceUser = new AttendanceUser();
+                attendanceUser.setDingUserId(dingUserId);
+                attendanceUser.setGroupId(ATTENDANCE_GROUP_ID);
+                attendanceUser.setCreateTime(now);
+                attendanceUser.setUpdateTime(now);
+                attendanceUserMapper.insert(attendanceUser);
+                insertCount++;
+            }
+        }
+        // 2. 删除：库里有、钉钉没有的（已移出考勤组）
+        int deleteCount = 0;
+        for (AttendanceUser dbUser : dbUsers) {
+            if (!remoteSet.contains(dbUser.getDingUserId())) {
+                attendanceUserMapper.deleteById(dbUser.getId());
+                deleteCount++;
+            }
+        }
+        LOG.info("考勤组人员同步结束: 远程人数={}, 新增={}, 移除={}, 库中保留={}",
+                remoteSet.size(), insertCount, deleteCount, remoteSet.size());
+        // 3. 补充未登录系统用户的姓名（无法通过 dingUserId 关联到 user 表的用户）
+        fillOtherNameForUnmatchedUsers();
+    }
+
+    /**
+     * 通过 AttendanceUser.dingUserId 关联 User.ding_id，
+     * 对关联不到的用户（从未登录过系统），调用钉钉「查询用户详情」接口获取姓名，
+     * 保存到 AttendanceUser.otherName
+     */
+    private void fillOtherNameForUnmatchedUsers() {
+        // 查询尚未获取到姓名的考勤人员
+        List<AttendanceUser> pendingUsers = attendanceUserMapper.selectList(
+                Wrappers.<AttendanceUser>lambdaQuery().isNull(AttendanceUser::getOtherName));
+        if (CollectionUtil.isEmpty(pendingUsers)) {
+            LOG.info("考勤人员姓名补充: 无待处理数据");
+            return;
+        }
+        // 查询这些钉钉ID中已登录过系统（user表存在）的用户
+        List<String> dingUserIds = new ArrayList<>();
+        for (AttendanceUser attendanceUser : pendingUsers) {
+            dingUserIds.add(attendanceUser.getDingUserId());
+        }
+        List<User> matchedUsers = userMapper.selectList(
+                Wrappers.<User>lambdaQuery()
+                        .in(User::getDingId, dingUserIds)
+                        .isNotNull(User::getDingId));
+        java.util.Set<String> matchedDingIds = new java.util.HashSet<>();
+        for (User user : matchedUsers) {
+            matchedDingIds.add(user.getDingId());
+        }
+        LocalDateTime now = LocalDateTime.now();
+        int fillCount = 0;
+        for (AttendanceUser attendanceUser : pendingUsers) {
+            // 已登录过系统的用户，姓名可从 user 表关联获取，无需处理
+            if (matchedDingIds.contains(attendanceUser.getDingUserId())) {
+                continue;
+            }
+            try {
+                // 调用钉钉「查询用户详情」接口获取姓名
+                JSONObject userInfo = dingUtils.getUserinfoByUserid(attendanceUser.getDingUserId());
+                String name = null == userInfo ? null : userInfo.getStr("name");
+                if (StringUtils.isNotBlank(name)) {
+                    attendanceUser.setOtherName(name);
+                    attendanceUser.setUpdateTime(now);
+                    attendanceUserMapper.updateById(attendanceUser);
+                    fillCount++;
+                } else {
+                    LOG.warn("获取考勤人员姓名失败(用户不存在或姓名为空): dingUserId={}", attendanceUser.getDingUserId());
+                }
+            } catch (Exception e) {
+                LOG.error("获取考勤人员姓名异常: dingUserId={}, 原因: {}", attendanceUser.getDingUserId(), e.getMessage());
+            }
+        }
+        LOG.info("考勤人员姓名补充结束: 待处理={}, 已登录系统={}, 从钉钉获取姓名={}",
+                pendingUsers.size(), matchedDingIds.size(), fillCount);
+    }
+
+    /**
+     * 同步昨天的打卡结果（每天早上9点40）
+     * 前置条件：8点的考勤组人员同步已完成（attendance_user 表有数据）
+     * 幂等：按recordId upsert，重复执行安全，漏数据时可手动重跑
+     */
+    @Scheduled(cron = "0 40 9 * * ?", zone = "Asia/Shanghai")
+    public void syncYesterdayAttendanceRecords() {
+        LOG.info("昨日打卡结果同步开始: {}", new java.util.Date());
+        try {
+            LocalDate yesterday = LocalDate.now().minusDays(1);
+            int count = attendanceRecordService.syncAttendanceRecords(yesterday);
+            LOG.info("昨日打卡结果同步结束: 日期={}, 处理记录数={}", yesterday, count);
+        } catch (Exception e) {
+            LOG.error("昨日打卡结果同步失败: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 同步近7天的加班审批（每天早上9点50）
+     * 按审批发起时间拉取已完成的加班申请，滚动7天窗口
+     * （加班审批可能在加班日期之后几天才审批完成，只同步昨天会漏数据）
+     * 幂等：按审批实例ID upsert，重复执行安全
+     */
+    @Scheduled(cron = "0 50 9 * * ?", zone = "Asia/Shanghai")
+    public void syncOvertimeApprovals() {
+        LOG.info("加班审批同步开始: {}", new java.util.Date());
+        try {
+            LocalDate endDate = LocalDate.now().minusDays(1);
+            LocalDate startDate = endDate.minusDays(6);
+            int count = attendanceOvertimeService.syncOvertimeApprovals(startDate, endDate);
+            LOG.info("加班审批同步结束: {} ~ {}, 处理记录数={}", startDate, endDate, count);
+        } catch (Exception e) {
+            LOG.error("加班审批同步失败: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 同步近7天的请假信息（每天早上9点55）
+     * 拉取钉钉请假状态（getleavestatus），滚动7天窗口，
+     * 用于每日工时汇总的请假标记（leave: true/false）
+     * 幂等：按 钉钉userId+开始/结束时间+假种code upsert，重复执行安全
+     */
+    @Scheduled(cron = "0 55 9 * * ?", zone = "Asia/Shanghai")
+    public void syncLeaveRecords() {
+        LOG.info("请假信息同步开始: {}", new java.util.Date());
+        try {
+            LocalDate endDate = LocalDate.now();
+            LocalDate startDate = endDate.minusDays(6);
+            int count = attendanceLeaveService.syncLeaveRecords(startDate, endDate);
+            LOG.info("请假信息同步结束: {} ~ {}, 处理记录数={}", startDate, endDate, count);
+        } catch (Exception e) {
+            LOG.error("请假信息同步失败: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 同步钉钉部门树 + 考勤人员所属部门（每天早上10点13分，错开整点高峰避免钉钉QPS限流）
+     * 从根部门递归拉取部门架构，落库 attendance_dept 表，
+     * 并回填 attendance_user 表的 dept_id/dept_name
+     * 部门架构变动频率低，每天一次足够；幂等可重跑
+     */
+    @Scheduled(cron = "0 13 10 * * ?", zone = "Asia/Shanghai")
+    public void syncDepartments() {
+        LOG.info("部门架构同步开始: {}", new java.util.Date());
+        try {
+            int count = attendanceDeptService.syncDepartments();
+            LOG.info("部门架构同步结束: 部门数={}", count);
+        } catch (Exception e) {
+            LOG.error("部门架构同步失败: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
      * Cron表达式任务（每天9点）
      * 格式：秒 分 时 日 月 周
      */
-    @Scheduled(cron = "0 0 9 * * ?")
+    @Scheduled(cron = "0 0 9 * * ?", zone = "Asia/Shanghai")
     public void deleteUserInfo() {
         LOG.info("离职用户处理开始: {}", new java.util.Date());
         List<User> userList = userMapper.selectList(Wrappers.<User>lambdaQuery().isNotNull(User::getDingId));
